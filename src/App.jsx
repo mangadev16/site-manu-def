@@ -25,41 +25,37 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
-      <header className="bg-emerald-600 text-white p-4 shadow-md">
-  <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <header className="bg-[#059669] text-white p-4 shadow-md">
+  <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
     
-    {/* Logo */}
+    {/* Logo e Nome */}
     <div className="flex items-center gap-3">
-      <div className="h-10 w-10 bg-white rounded-full flex items-center justify-center text-emerald-600 font-bold">MB</div>
-      <h1 className="font-bold hidden sm:block uppercase">Manuela Bernardo</h1>
+      <div className="bg-white text-[#059669] font-bold rounded-full w-12 h-12 flex items-center justify-center text-xl shadow-inner">
+        MB
+      </div>
+      <div className="text-center md:text-left">
+        <h1 className="font-bold text-lg md:text-2xl tracking-tight leading-none">MANUELA BERNARDO</h1>
+        <p className="text-[10px] md:text-xs opacity-90 uppercase tracking-widest">Nutrição • Acupuntura • Farmácia</p>
+      </div>
     </div>
 
-    {/* Menu Central */}
-    <nav className="flex gap-4">
-      <button onClick={() => setAbaAtiva("dados")} className="hover:text-emerald-200">Meus Dados</button>
-      <button onClick={() => setAbaAtiva("servicos")} className="hover:text-emerald-200">Serviços</button>
-      <button onClick={() => setAbaAtiva("agendamento")} className="hover:text-emerald-200">Agendar</button>
+    {/* Menu de Navegação Responsivo */}
+    <nav className="flex flex-wrap justify-center gap-2 w-full md:w-auto">
+      <button onClick={() => setAbaAtiva("servicos")} className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${abaAtiva === "servicos" ? "bg-emerald-800 shadow-inner" : "hover:bg-emerald-600"}`}>
+        Serviços
+      </button>
+      <button onClick={() => setAbaAtiva("agendamento")} className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${abaAtiva === "agendamento" ? "bg-emerald-800 shadow-inner" : "hover:bg-emerald-600"}`}>
+        Agendar
+      </button>
+      <button onClick={() => setAbaAtiva("dados")} className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${abaAtiva === "dados" ? "bg-emerald-800 shadow-inner" : "hover:bg-emerald-600"}`}>
+        Meus Dados
+      </button>
       
-      
-    </nav>
-
-    {/* CANTO DIREITO: Onde o nome aparece */}
-    <div className="flex items-center gap-2 bg-emerald-700/40 p-1.5 px-3 rounded-full border border-emerald-400/30">
-      <div className="text-right leading-tight">
-        <p className="text-[10px] text-emerald-100">Olá,</p>
-        {/* Aqui ele pega o displayName do Firebase. Se estiver vazio, usa "Paciente" */}
-        <p className="text-sm font-bold truncate max-w-[100px]">
-          {usuario.displayName || "Paciente"}
-        </p>
-      </div>
-      <div className="h-8 w-8 bg-white rounded-full flex items-center justify-center text-lg shadow-sm">
-        👤
-      </div>
-      <button onClick={() => signOut(auth)} title="Sair" className="ml-2 hover:text-red-300">
+      {/* Botão Sair com destaque */}
+      <button onClick={() => auth.signOut()} className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg text-sm font-bold shadow-md active:scale-95 transition-all">
         SAIR
       </button>
-    </div>
-
+    </nav>
   </div>
 </header>
 
@@ -73,18 +69,27 @@ const App = () => {
 }; 
 // --- Componentes das Abas ---
 const Servicos = () => (
-  <div className="grid md:grid-cols-3 gap-6">
-    <div className="p-5 border border-emerald-50 rounded-xl bg-emerald-50/30">
-      <h3 className="font-bold text-lg mb-2">🍏 Nutrição</h3>
-      <p className="text-sm text-gray-600">Planos personalizados.</p>
+  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-2">
+
+    {/* Card de Nutrição */}
+    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+      <span className="text-3xl mb-2 block">🍏</span>
+      <h3 className="font-bold text-lg text-gray-800">Nutrição</h3>
+      <p className="text-gray-500 text-sm">Planos personalizados para sua saúde.</p>
     </div>
-    <div className="p-5 border border-emerald-50 rounded-xl bg-emerald-50/30">
-      <h3 className="font-bold text-lg mb-2">📍 Acupuntura</h3>
-      <p className="text-sm text-gray-600">Equilíbrio energético.</p>
+
+    {/*card de acupuntura*/}
+    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+      <span className="text-3xl mb-2 block">📍</span>
+      <h3 className="font-bold text-lg text-gray-800">Acupuntura</h3>
+      <p className="text-gray-500 text-sm">Energia de Volta.</p>
     </div>
-    <div className="p-5 border border-emerald-50 rounded-xl bg-emerald-50/30">
-      <h3 className="font-bold text-lg mb-2">💊 Farmácia</h3>
-      <p className="text-sm text-gray-600">Suplementação natural.</p>
+
+    {/*card de farmácia*/}
+    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+      <span className="text-3xl mb-2 block">💊</span>'
+      <h3 className="font-bold text-lg text-gray-800">farmácia</h3>
+      <p className="text-gray-500 text-sm">Medicamentos Modificados.</p>
     </div>
   </div>
 );
