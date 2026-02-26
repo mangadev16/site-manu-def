@@ -5,6 +5,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import MeusDados from "./pages/MeusDados";
+import Perfil from "./pages/Perfil";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -26,9 +27,9 @@ function App() {
         <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" />} />
         <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" />} />
         <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
+        <Route path="/meus-dados" element={user ? <MeusDados /> : <Navigate to="/meus-dados" />} /> 
+        <Route path="/perfil" element={user ? <Perfil /> : <Navigate to="/login" />} />
         <Route path="/" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
-        <Route path="/meus-dados" element={user ? <MeusDados /> : <Navigate to="/login" />} /> 
-/
       </Routes>
     </Router>
   );
