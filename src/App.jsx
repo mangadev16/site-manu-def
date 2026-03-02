@@ -6,6 +6,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import MeusDados from "./pages/MeusDados";
 import Perfil from "./pages/Perfil";
+import Agendamento from "./pages/Agendamento"
 
 function App() {
   const [user, setUser] = useState(null);
@@ -30,6 +31,7 @@ function App() {
         <Route path="/meus-dados" element={user ? <MeusDados /> : <Navigate to="/meus-dados" />} /> 
         <Route path="/perfil" element={user ? <Perfil /> : <Navigate to="/login" />} />
         <Route path="/" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
+        <Route path="/Agendamento" element={<Agendamento />} />
       </Routes>
     </Router>
   );
