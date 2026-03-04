@@ -1,104 +1,148 @@
-import React, { useState } from "react";
-import { auth } from "../firebase";
-import { useNavigate, useLocation } from "react-router-dom";
-import { User, ChevronDown, Calendar, Settings, LogOut, X, Activity, ClipboardList, PlusCircle } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { auth, db } from "../firebase";
+import { doc, updateDoc, arrayUnion } from "firebase/firestore";
+import { useNavigate } from "react-router-dom";
+import { 
+  ArrowLeft, Calendar as CalendarIcon, Clock, 
+  ChevronLeft, ChevronRight, CheckCircle2 
+} from "lucide-react";
 
 const Agendamento = () => {
-  const [perfilAberto, setPerfilAberto] = useState(false);
-  const [menuAberto, setMenuAberto] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
-  const nomeUsuario = auth.currentUser?.displayName || "Usuário";
+  const [etapa, setEtapa] = useState(1); // 1: Data, 2: Horário, 3: Serviço
+  const [dataSelecionada, setDataSelecionada] = useState(new Date());
+  const [horarioSelecionado, setHorarioSelecionado] = useState(null);
+  const [mesAtual, setMesAtual] = useState(new Date());
 
-  const isAtivo = (rota) => location.pathname === rota;
-  const horarios = ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"];
+  const horarios = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
+  const servicos = [
+    { nome: "Nutrição", cor: "bg-apple-50" },
+    { nome: "Acupuntura", cor: "bg-emerald-50" },
+    { nome: "Farmácia", cor: "bg-teal-50" }
+  ];
+
+  // Lógica do Calendário
+  const mudarMes = (dir) => setMesAtual(new Date(mesAtual.getFullYear(), mesAtual.getMonth() + dir, 1));
+  const diasNoMes = new Date(mesAtual.getFullYear(), mesAtual.getMonth() + 1, 0).getDate();
+  const primeiroDia = new Date(mesAtual.getFullYear(), mesAtual.getMonth(), 1).getDay();
+
+  const finalizarAgendamento = async (servicoEscolhido) => {
+    try {
+      const userRef = doc(db, "usuarios", auth.currentUser.uid);
+      const novoAgendamento = {
+        id: Date.now(),
+        servico: servicoEscolhido,
+        data: dataSelecionada.toLocaleDateString('pt-BR'),
+        horario: horarioSelecionado,
+        timestamp: new Date()
+      };
+
+      await updateDoc(userRef, {
+        agendamentos: arrayUnion(novoAgendamento)
+      });
+
+      alert("Agendamento realizado com sucesso!");
+      navigate("/meus-dados");
+    } catch (error) {
+      console.error("Erro ao salvar:", error);
+      alert("Erro ao agendar. Verifique se o banco de dados está configurado.");
+    }
+  };
 
   return (
-    <div className="h-screen w-full bg-gray-50 font-sans flex flex-col overflow-hidden">
-      {menuAberto && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setMenuAberto(false)} />}
-
-      <header className="bg-[#059669] text-white p-4 flex justify-between items-center shadow-md z-50 shrink-0">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => { if(window.innerWidth < 1024) setMenuAberto(true) }} 
-            className="bg-white text-[#059669] font-bold rounded-full w-10 h-10 flex items-center justify-center shadow-md shrink-0 lg:cursor-default"
-          >
-            MB
-          </button>
-          
-          <div className="flex items-center gap-6">
-            <div>
-              <h1 className="font-bold text-sm leading-none uppercase tracking-tight">Manuela Bernardo</h1>
-              <p className="text-[10px] uppercase opacity-90 tracking-tighter">Nutrição • Acupuntura • Farmácia</p>
-            </div>
-
-            <nav className="hidden lg:flex items-center gap-1 ml-4 border-l border-emerald-400/30 pl-6">
-              <button onClick={() => navigate("/dashboard")} className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${isAtivo('/dashboard') ? 'bg-emerald-700/50' : 'hover:bg-emerald-700/30'}`}>
-                <Activity size={14} /> Serviços
-              </button>
-              <button onClick={() => navigate("/agendamento")} className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${isAtivo('/agendamento') ? 'bg-emerald-700/50' : 'hover:bg-emerald-700/30'}`}>
-                <PlusCircle size={14} /> Agendar Horário
-              </button>
-              <button onClick={() => navigate("/meus-dados")} className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${isAtivo('/meus-dados') ? 'bg-emerald-700/50' : 'hover:bg-emerald-700/30'}`}>
-                <ClipboardList size={14} /> Meus Dados
-              </button>
-            </nav>
-          </div>
-        </div>
-
-        <div className="relative">
-          <button onClick={() => setPerfilAberto(!perfilAberto)} className="flex items-center gap-2 bg-[#064e3b] px-3 py-2 rounded-full border border-emerald-400/30">
-            <User size={16} />
-            <span className="text-xs font-bold">{nomeUsuario.split(/[ @]/)[0]}</span>
-            <ChevronDown size={14} className={perfilAberto ? 'rotate-180' : ''} />
-          </button>
-          {perfilAberto && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50">
-              <button onClick={() => navigate("/perfil")} className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-emerald-50 flex items-center gap-2">
-                <Settings size={16} className="text-emerald-600" /> Dados da Conta
-              </button>
-              <button onClick={() => auth.signOut()} className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 font-bold border-t border-gray-50">
-                <LogOut size={16} /> Sair
-              </button>
-            </div>
-          )}
-        </div>
+    <div className="fixed inset-0 h-screen w-full bg-gray-50 flex flex-col overflow-hidden">
+      <header className="bg-[#059669] text-white p-4 flex items-center gap-4 shrink-0">
+        <button onClick={() => etapa > 1 ? setEtapa(etapa - 1) : navigate("/dashboard")} className="p-2 bg-white/20 rounded-full">
+          <ArrowLeft size={24} />
+        </button>
+        <h1 className="font-bold uppercase tracking-tight">Agendar {etapa === 3 ? "Serviço" : etapa === 2 ? "Horário" : "Data"}</h1>
       </header>
 
-      <main className="flex-1 p-4 lg:p-10 flex flex-col items-center justify-center overflow-y-auto">
-        <div className="w-full max-w-[500px] bg-white rounded-[30px] shadow-xl p-6 lg:p-10 border border-emerald-50">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="bg-emerald-50 p-3 rounded-2xl"><Calendar className="text-emerald-600" size={24} /></div>
-            <h2 className="text-[#064e3b] text-xl lg:text-2xl font-bold">Horários Disponíveis</h2>
+      <main className="flex-1 p-4 flex flex-col items-center overflow-hidden">
+        <div className="w-full max-w-[500px] h-full flex flex-col">
+          
+          <div className="flex-1 min-h-0 bg-white rounded-[35px] border-2 border-emerald-100 shadow-sm flex flex-col overflow-hidden">
+            
+            {/* ETAPA 1: CALENDÁRIO */}
+            {etapa === 1 && (
+              <div className="flex flex-col h-full">
+                <div className="p-4 flex justify-between items-center border-b shrink-0">
+                  <span className="font-bold text-gray-700">{mesAtual.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })}</span>
+                  <div className="flex gap-2">
+                    <button onClick={() => mudarMes(-1)} className="p-1"><ChevronLeft /></button>
+                    <button onClick={() => mudarMes(1)} className="p-1"><ChevronRight /></button>
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4">
+                  <div className="grid grid-cols-7 gap-2 text-center">
+                    {["D", "S", "T", "Q", "Q", "S", "S"].map(d => <span key={d} className="text-[10px] font-bold text-gray-400">{d}</span>)}
+                    {Array.from({ length: primeiroDia }).map((_, i) => <div key={i} />)}
+                    {Array.from({ length: diasNoMes }).map((_, i) => {
+                      const dia = i + 1;
+                      const isHoje = dataSelecionada.getDate() === dia && dataSelecionada.getMonth() === mesAtual.getMonth();
+                      return (
+                        <button 
+                          key={dia} 
+                          onClick={() => setDataSelecionada(new Date(mesAtual.getFullYear(), mesAtual.getMonth(), dia))}
+                          className={`h-10 rounded-xl font-bold text-sm ${isHoje ? 'bg-[#059669] text-white' : 'text-gray-600 hover:bg-emerald-50'}`}
+                        >
+                          {dia}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <button onClick={() => setEtapa(2)} className="m-4 py-4 bg-[#059669] text-white rounded-2xl font-bold flex items-center justify-center gap-2">
+                   Próximo <ChevronRight size={18}/>
+                </button>
+              </div>
+            )}
+
+            {/* ETAPA 2: HORÁRIOS */}
+            {etapa === 2 && (
+              <div className="flex flex-col h-full">
+                <div className="p-6 text-center shrink-0 border-b">
+                  <p className="text-gray-500 text-sm">Disponibilidade para</p>
+                  <p className="font-bold text-emerald-700">{dataSelecionada.toLocaleDateString('pt-BR')}</p>
+                </div>
+                <div className="flex-1 overflow-y-auto p-6 grid grid-cols-3 gap-3">
+                  {horarios.map(h => (
+                    <button 
+                      key={h}
+                      onClick={() => { setHorarioSelecionado(h); setEtapa(3); }}
+                      className="p-4 rounded-2xl border-2 border-gray-100 font-bold text-gray-700 hover:border-emerald-500 hover:bg-emerald-50 transition-all"
+                    >
+                      {h}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ETAPA 3: SERVIÇO */}
+            {etapa === 3 && (
+              <div className="flex flex-col h-full p-6 space-y-4 overflow-y-auto">
+                <div className="bg-emerald-50 p-4 rounded-2xl mb-2">
+                  <p className="text-xs text-emerald-600 font-bold uppercase">Resumo da Reserva</p>
+                  <p className="text-gray-700 font-medium">{dataSelecionada.toLocaleDateString('pt-BR')} às {horarioSelecionado}</p>
+                </div>
+                <p className="font-bold text-gray-800">Selecione o serviço:</p>
+                {servicos.map(s => (
+                  <button 
+                    key={s.nome}
+                    onClick={() => finalizarAgendamento(s.nome)}
+                    className="p-5 rounded-[25px] border-2 border-gray-100 flex justify-between items-center group hover:border-emerald-500 transition-all"
+                  >
+                    <span className="font-bold text-gray-700">{s.nome}</span>
+                    <CheckCircle2 className="text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </button>
+                ))}
+              </div>
+            )}
+
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {horarios.map((h) => (
-              <button key={h} className="py-4 border-2 border-emerald-100 rounded-2xl text-[#059669] font-bold text-lg hover:bg-[#059669] hover:text-white hover:border-[#059669] transition-all shadow-sm active:scale-95">
-                {h}
-              </button>
-            ))}
-          </div>
-          <button onClick={() => navigate("/dashboard")} className="mt-8 block w-full text-center text-emerald-600 font-bold underline">Voltar para Serviços</button>
         </div>
       </main>
-
-      <aside className={`lg:hidden fixed top-0 left-0 h-full w-64 bg-white z-[60] shadow-2xl transform transition-transform duration-300 ${menuAberto ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-6 border-b bg-[#059669] text-white flex justify-between items-center">
-          <span className="font-bold uppercase text-xs tracking-widest">Menu Principal</span>
-          <button onClick={() => setMenuAberto(false)}><X size={24} /></button>
-        </div>
-        <nav className="p-4 flex flex-col gap-2">
-          <button onClick={() => {navigate("/dashboard"); setMenuAberto(false);}} className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 ${isAtivo('/dashboard') ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600'}`}>
-            <Activity size={18} /> Serviços
-          </button>
-          <button onClick={() => setMenuAberto(false)} className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 ${isAtivo('/agendamento') ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600'}`}>
-            <PlusCircle size={18} /> Agendar Horário
-          </button>
-          <button onClick={() => {navigate("/meus-dados"); setMenuAberto(false);}} className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 ${isAtivo('/meus-dados') ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600'}`}>
-            <ClipboardList size={18} /> Meus Dados
-          </button>
-        </nav>
-      </aside>
     </div>
   );
 };

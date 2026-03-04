@@ -7,6 +7,9 @@ import Dashboard from "./pages/Dashboard";
 import MeusDados from "./pages/MeusDados";
 import Perfil from "./pages/Perfil";
 import Agendamento from "./pages/Agendamento"
+import Nutricao from "./pages/Nutricao";
+import Acupuntura from "./pages/Acupuntura";
+import Farmacia from "./pages/Farmacia";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -32,6 +35,9 @@ function App() {
         <Route path="/perfil" element={user ? <Perfil /> : <Navigate to="/login" />} />
         <Route path="/" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
         <Route path="/Agendamento" element={<Agendamento />} />
+        <Route path="/nutricao" element={user ? <Nutricao /> : <Navigate to="/login" />} />
+        <Route path="/acupuntura" element={user ? <Acupuntura /> : <Navigate to="/login" />} />
+        <Route path="/farmacia" element={user ? <Farmacia /> : <Navigate to="/login" />} />
       </Routes>
     </Router>
   );

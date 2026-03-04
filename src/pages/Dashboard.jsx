@@ -29,10 +29,28 @@ const Dashboard = () => {
   }, []);
 
   const servicos = [
-    { id: 1, nome: "Nutrição", desc: "Planos alimentares personalizados.", icon: <Apple className="text-emerald-600" size={24} /> },
-    { id: 2, nome: "Acupuntura", desc: "Equilíbrio e alívio de dores.", icon: <Milestone className="text-emerald-600" size={24} /> },
-    { id: 3, nome: "Farmácia", desc: "Orientação farmacêutica e fórmulas.", icon: <Thermometer className="text-emerald-600" size={24} /> },
-  ];
+  { 
+    id: 1, 
+    nome: "Nutrição", 
+    desc: "Planos alimentares personalizados.", 
+    icon: <Apple className="text-emerald-600" size={24} />,
+    path: "/Nutricao" // <--- ADICIONE AQUI
+  },
+  { 
+    id: 2, 
+    nome: "Acupuntura", 
+    desc: "Equilíbrio e alívio de dores.", 
+    icon: <Milestone className="text-emerald-600" size={24} />,
+    path: "/Acupuntura" // <--- ADICIONE AQUI
+  },
+  { 
+    id: 3, 
+    nome: "Farmácia", 
+    desc: "Orientação farmacêutica e fórmulas.", 
+    icon: <Thermometer className="text-emerald-600" size={24} />,
+    path: "/Farmacia" // <--- ADICIONE AQUI
+  },
+];
 
   return (
     <div className="fixed inset-0 h-screen w-full bg-gray-50 font-sans flex flex-col overflow-hidden overscroll-behavior-none">
@@ -98,7 +116,9 @@ const Dashboard = () => {
           {/* GRID: Diferente para Mobile (Vertical/Flex) e PC (Horizontal/Grid) */}
           <div className="flex-1 lg:flex-none flex flex-col lg:grid lg:grid-cols-3 gap-3 lg:gap-8 w-full mb-6 lg:mb-12">
             {servicos.map((s) => (
-              <div key={s.id} className="flex-1 lg:flex-none bg-white p-5 lg:p-8 rounded-[25px] lg:rounded-[40px] border-2 border-emerald-100 shadow-sm flex flex-row lg:flex-col items-center lg:text-center gap-4 lg:gap-6 hover:shadow-md transition-all">
+              
+              <div key={s.id} onClick={() => navigate(s.path)} className="flex-1 lg:flex-none bg-white p-5 lg:p-8 rounded-[25px] lg:rounded-[40px] border-2 border-emerald-100 shadow-sm flex flex-row lg:flex-col items-center lg:text-center gap-4 lg:gap-6 hover:shadow-md transition-all">
+                
                 <div className="bg-emerald-50 w-12 h-12 lg:w-20 lg:h-20 rounded-2xl lg:rounded-[25px] flex items-center justify-center shrink-0 lg:mx-auto">
                   {s.icon}
                 </div>
