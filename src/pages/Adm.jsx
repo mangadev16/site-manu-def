@@ -1,204 +1,330 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { db, auth } from "../firebase";
-import { collection, onSnapshot } from "firebase/firestore";
-import { useNavigate } from "react-router-dom";
+import { collection, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { 
-  User, LogOut, Calendar, Clock, Search, 
-  ChevronDown, X, ClipboardList, Activity 
+  User, LogOut, Calendar as CalendarIcon, Clock, X, Apple, Thermometer, Milestone,
+  ChevronLeft, ChevronRight, RotateCcw, MessageCircle, ChevronRight as ChevronIcon,
+  Users, BarChart3, CheckCircle2, AlertCircle, Trash2, LayoutDashboard, Menu, Search, Filter, ArrowUpDown, History
 } from "lucide-react";
 
 const Adm = () => {
-  const [usuarios, setUsuarios] = useState([]);
+  const [telaAtiva, setTelaAtiva] = useState("agenda"); 
+  const [menuAberto, setMenuAberto] = useState(false);
+  const [abaAtiva, setAbaAtiva] = useState("Nutrição");
   const [agendamentosTodos, setAgendamentosTodos] = useState([]);
+  const [clientesTodos, setClientesTodos] = useState([]);
+  const [dataFiltro, setDataFiltro] = useState(new Date()); 
+  const [buscaCliente, setBuscaCliente] = useState("");
+  const [ordemClientes, setOrdemClientes] = useState("alfabetica");
+  const [filtroServico, setFiltroServico] = useState("Todos"); 
+  const [filtroAberto, setFiltroAberto] = useState(false); // Estado para o dropdown de filtros
   const [agendamentoSelecionado, setAgendamentoSelecionado] = useState(null);
-  const [perfilAberto, setPerfilAberto] = useState(false);
-  const navigate = useNavigate();
+  const [clienteFicha, setClienteFicha] = useState(null);
+  
+  const inputAgendaRef = useRef(null);
+  const inputFinanceiroRef = useRef(null);
+
+  const servicosConfig = {
+    "Nutrição": { icon: <Apple size={16} />, color: "text-orange-500" },
+    "Acupuntura": { icon: <Milestone size={16} />, color: "text-indigo-500" },
+    "Farmácia": { icon: <Thermometer size={16} />, color: "text-rose-500" }
+  };
 
   useEffect(() => {
-    // Escuta a coleção de usuários para pegar todos os agendamentos de todos os clientes
     const unsub = onSnapshot(collection(db, "usuarios"), (snapshot) => {
-      const listaAgendamentos = [];
+      const todosAg = [];
+      const todosCl = [];
       snapshot.forEach((doc) => {
         const dados = doc.data();
-        if (dados.agendamentos) {
-          dados.agendamentos.forEach(ag => {
-            listaAgendamentos.push({
-              ...ag,
-              usuarioNome: dados.nome || "Cliente",
-              usuarioEmail: dados.email || "Não informado",
-              usuarioTelefone: dados.telefone || "Não informado",
-              uid: doc.id
-            });
-          });
-        }
+        const historico = dados.historico || [];
+        const agendamentosAtivos = dados.agendamentos || [];
+        todosCl.push({ id: doc.id, ...dados, totalGeral: historico.length + agendamentosAtivos.length });
+        agendamentosAtivos.forEach(ag => {
+          todosAg.push({ ...ag, usuarioNome: dados.nome || "Cliente", uid: doc.id });
+        });
       });
-      // Ordena pelos mais recentes primeiro
-      setAgendamentosTodos(listaAgendamentos.sort((a, b) => b.id - a.id));
+      setAgendamentosTodos(todosAg);
+      setClientesTodos(todosCl);
     });
-
     return () => unsub();
   }, []);
 
+  const dataFormatada = dataFiltro.toLocaleDateString('pt-BR');
+  const hojeFormatado = new Date().toLocaleDateString('pt-BR');
+  
+  const mudarDia = (dias) => {
+    const novaData = new Date(dataFiltro);
+    novaData.setDate(novaData.getDate() + dias);
+    setDataFiltro(novaData);
+  };
+
+  const abrirCalendario = (ref) => {
+    if (ref.current && typeof ref.current.showPicker === 'function') ref.current.showPicker();
+  };
+
+  const clientesFiltrados = clientesTodos
+    .filter(c => {
+      const bateTexto = c.nome?.toLowerCase().includes(buscaCliente.toLowerCase()) || c.telefone?.includes(buscaCliente);
+      if (!bateTexto) return false;
+      if (filtroServico === "Todos") return true;
+      return agendamentosTodos.some(ag => ag.uid === c.id && ag.servico === filtroServico) || 
+             (c.historico && c.historico.some(h => h.servico === filtroServico));
+    })
+    .sort((a, b) => {
+      if (ordemClientes === "alfabetica") return a.nome.localeCompare(b.nome);
+      return b.totalGeral - a.totalGeral;
+    });
+
+  const atualizarStatus = async (ag, novoStatus) => {
+    try {
+      const userRef = doc(db, "usuarios", ag.uid);
+      await updateDoc(userRef, {
+        agendamentos: arrayRemove({ id: ag.id, data: ag.data, horario: ag.horario, servico: ag.servico }),
+        historico: arrayUnion({ ...ag, status: novoStatus, dataAcao: ag.data }) 
+      });
+      setAgendamentoSelecionado(null);
+    } catch (e) { console.error(e); }
+  };
+
   return (
-    <div className="fixed inset-0 h-screen w-full bg-gray-50 font-sans flex flex-col overflow-hidden">
-      {/* HEADER ADM */}
-      <header className="bg-[#1f2937] text-white p-4 flex justify-between items-center shadow-md z-50 shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="bg-emerald-500 text-white font-bold rounded-full w-10 h-10 flex items-center justify-center shadow-md">
-            ADM
-          </div>
-          <div>
-            <h1 className="font-bold text-sm uppercase leading-none tracking-tight">
-              Painel de Controle
-            </h1>
-            <p className="text-[10px] uppercase opacity-90">
-              Gestão de Agendamentos
-            </p>
-          </div>
+    <div className="fixed inset-0 h-screen w-full bg-[#f8fafc] flex flex-col lg:flex-row overflow-hidden text-slate-900">
+      
+      {/* SIDEBAR */}
+      <aside className={`fixed lg:static inset-y-0 left-0 w-72 bg-[#1e293b] text-white z-[100] transform transition-transform duration-300 ${menuAberto ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+        <div className="p-8 border-b border-white/10 flex items-center gap-3">
+          <div className="h-2 w-2 bg-emerald-500 rounded-full"/>
+          <h1 className="font-black text-xs uppercase tracking-widest text-emerald-400">Painel ADM</h1>
         </div>
-
-        <div className="relative">
-          <button
-            onClick={() => setPerfilAberto(!perfilAberto)}
-            className="flex items-center gap-2 bg-gray-800 px-3 py-2 rounded-full border border-gray-600"
-          >
-            <User size={16} />
-            <span className="text-xs font-bold">Admin Manuela</span>
-            <ChevronDown
-              size={14}
-              className={perfilAberto ? "rotate-180" : ""}
-            />
+        <nav className="p-6 space-y-3">
+          <button onClick={() => {setTelaAtiva("agenda"); setMenuAberto(false)}} className={`w-full flex items-center gap-4 p-4 rounded-2xl font-black text-[10px] transition-all ${telaAtiva === 'agenda' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white/5'}`}>
+            <LayoutDashboard size={20}/> AGENDA
           </button>
-          {perfilAberto && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50">
-              <button
-                onClick={async () => {
-                  await auth.signOut(); // Desloga do Firebase (caso esteja logado)
-                  navigate("/login"); // Força o retorno para a tela de login
-                }}
-                className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 font-bold transition-colors"
-              >
-                <LogOut size={16} /> Sair do Painel
-              </button>
+          <button onClick={() => {setTelaAtiva("clientes"); setMenuAberto(false)}} className={`w-full flex items-center gap-4 p-4 rounded-2xl font-black text-[10px] transition-all ${telaAtiva === 'clientes' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white/5'}`}>
+            <Users size={20}/> CLIENTES
+          </button>
+          <button onClick={() => {setTelaAtiva("financeiro"); setMenuAberto(false)}} className={`w-full flex items-center gap-4 p-4 rounded-2xl font-black text-[10px] transition-all ${telaAtiva === 'financeiro' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white/5'}`}>
+            <BarChart3 size={20}/> RELATÓRIOS
+          </button>
+          <div className="mt-10 pt-10 border-t border-white/10">
+            <button onClick={() => auth.signOut()} className="flex items-center gap-4 p-4 text-red-400 font-black text-[10px] hover:bg-red-400/10 w-full rounded-2xl transition-all">
+              <LogOut size={20}/> SAIR
+            </button>
+          </div>
+        </nav>
+      </aside>
+
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
+        <header className="bg-white p-4 lg:p-6 border-b flex justify-between items-center z-50 shadow-sm">
+          <button onClick={() => setMenuAberto(true)} className="lg:hidden p-2 text-slate-600"><Menu/></button>
+          <h2 className="font-black text-slate-800 uppercase tracking-tighter text-sm">{telaAtiva}</h2>
+        </header>
+
+        <main className="flex-1 overflow-y-auto p-4 md:p-10 pb-32">
+          
+          {/* TELA: AGENDA */}
+          {telaAtiva === "agenda" && (
+            <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in">
+              <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                
+                {/* CALENDÁRIO COM BOTÃO VOLTAR PARA HOJE */}
+                <div className="flex items-center gap-4 bg-white p-2 rounded-2xl shadow-sm border">
+                  <button onClick={() => mudarDia(-1)} className="p-2 hover:bg-slate-50 rounded-xl transition-colors text-slate-400"><ChevronLeft/></button>
+                  <div onClick={() => abrirCalendario(inputAgendaRef)} className="flex items-center gap-3 px-4 py-1 cursor-pointer hover:bg-slate-50 rounded-xl transition-all group">
+                    <CalendarIcon size={20} className="text-emerald-500 group-hover:scale-110 transition-transform"/>
+                    <span className="font-black text-slate-700 text-sm">{dataFormatada}</span>
+                    <input ref={inputAgendaRef} type="date" className="absolute w-0 h-0 opacity-0" onChange={(e) => e.target.value && setDataFiltro(new Date(e.target.value.replace(/-/g, '\/')))}/>
+                  </div>
+                  
+                  {dataFormatada !== hojeFormatado && (
+                    <button onClick={() => setDataFiltro(new Date())} className="p-2 bg-emerald-100 text-emerald-600 rounded-full hover:bg-emerald-600 hover:text-white transition-all shadow-sm">
+                      <RotateCcw size={14}/>
+                    </button>
+                  )}
+                  
+                  <button onClick={() => mudarDia(1)} className="p-2 hover:bg-slate-50 rounded-xl transition-colors text-slate-400"><ChevronRight/></button>
+                </div>
+
+                {/* ABAS DA AGENDA COM ÍCONES */}
+                <div className="flex bg-slate-200/50 p-1.5 rounded-2xl gap-1">
+                  {Object.keys(servicosConfig).map(id => (
+                    <button key={id} onClick={() => setAbaAtiva(id)} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black transition-all ${abaAtiva === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>
+                      <span className={abaAtiva === id ? servicosConfig[id].color : 'text-slate-400'}>{servicosConfig[id].icon}</span>
+                      {id.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-3">
+                {agendamentosTodos.filter(ag => ag.servico === abaAtiva && ag.data === dataFormatada).length === 0 ? (
+                  <div className="bg-white/50 p-20 rounded-[40px] text-center border-2 border-dashed border-slate-200 text-slate-300 font-black uppercase text-[10px] tracking-widest">Agenda Livre</div>
+                ) : (
+                  agendamentosTodos.filter(ag => ag.servico === abaAtiva && ag.data === dataFormatada).map(ag => (
+                    <div key={ag.id} onClick={() => setAgendamentoSelecionado(ag)} className="bg-white p-6 rounded-[30px] border border-transparent hover:border-emerald-500 transition-all cursor-pointer flex justify-between items-center shadow-sm group">
+                      <div className="flex items-center gap-5">
+                        <div className="h-12 w-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors"><User size={22}/></div>
+                        <div>
+                          <p className="font-bold text-slate-800 text-lg">{ag.usuarioNome}</p>
+                          <p className="text-[11px] font-black text-emerald-500 uppercase flex items-center gap-1.5 mt-0.5"><Clock size={14}/> {ag.horario}</p>
+                        </div>
+                      </div>
+                      <ChevronIcon className="text-slate-300 group-hover:translate-x-1 transition-all" size={20}/>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           )}
-        </div>
-      </header>
 
-      <main className="flex-1 p-4 lg:p-10 flex flex-col items-center overflow-y-auto">
-        <div className="w-full max-w-[800px] space-y-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">
-              Próximos atendimentos
-            </h2>
-            <div className="bg-emerald-100 text-emerald-700 px-4 py-1 rounded-full text-xs font-bold">
-              {agendamentosTodos.length} Total
+          {/* TELA: CLIENTES COM FILTRO DROPDOWN IGUAL ANTES */}
+          {telaAtiva === "clientes" && (
+            <div className="max-w-4xl mx-auto space-y-6 animate-in slide-in-from-bottom-4">
+              <div className="relative">
+                <div className="relative flex items-center">
+                  <Search className="absolute left-6 text-slate-400" size={20}/>
+                  <input type="text" placeholder="Pesquisar nome ou WhatsApp..." className="w-full pl-16 pr-16 py-5 bg-white border border-slate-200 rounded-[25px] shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/10 font-bold text-slate-700" value={buscaCliente} onChange={(e) => setBuscaCliente(e.target.value)}/>
+                  <button onClick={() => setFiltroAberto(!filtroAberto)} className={`absolute right-4 p-3 rounded-2xl transition-all ${filtroAberto ? 'bg-slate-800 text-white shadow-lg' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                    <Filter size={20}/>
+                  </button>
+                </div>
+
+                {/* DROPDOWN DE FILTRO PRESERVADO */}
+                {filtroAberto && (
+                  <div className="absolute right-0 mt-3 w-72 bg-white border rounded-[30px] shadow-2xl p-6 z-[60] animate-in zoom-in duration-200">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Ordenar por</p>
+                    <div className="space-y-2 mb-6">
+                      <button onClick={() => {setOrdemClientes("alfabetica"); setFiltroAberto(false)}} className={`w-full text-left p-3 rounded-xl text-xs font-bold flex items-center gap-3 transition-colors ${ordemClientes === 'alfabetica' ? 'bg-emerald-50 text-emerald-600' : 'text-slate-600 hover:bg-slate-50'}`}>
+                        <ArrowUpDown size={14}/> Ordem Alfabética
+                      </button>
+                      <button onClick={() => {setOrdemClientes("mais_agendamentos"); setFiltroAberto(false)}} className={`w-full text-left p-3 rounded-xl text-xs font-bold flex items-center gap-3 transition-colors ${ordemClientes === 'mais_agendamentos' ? 'bg-emerald-50 text-emerald-600' : 'text-slate-600 hover:bg-slate-50'}`}>
+                        <History size={14}/> Frequência
+                      </button>
+                    </div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Filtrar Serviço</p>
+                    <div className="grid gap-2">
+                      {["Todos", "Nutrição", "Acupuntura", "Farmácia"].map((servico) => (
+                        <button key={servico} onClick={() => { setFiltroServico(servico); setFiltroAberto(false); }} className={`w-full text-left p-3 rounded-xl text-xs font-bold flex items-center gap-3 transition-colors ${filtroServico === servico ? 'bg-emerald-50 text-emerald-600' : 'text-slate-600 hover:bg-slate-50'}`}>
+                          <div className={`w-2 h-2 rounded-full ${filtroServico === servico ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                          {servico}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {clientesFiltrados.map(cliente => (
+                  <div key={cliente.id} onClick={() => setClienteFicha(cliente)} className="bg-white p-7 rounded-[40px] border border-transparent hover:border-emerald-500 transition-all cursor-pointer shadow-sm group">
+                    <div className="flex justify-between items-start mb-5">
+                      <div className="h-10 w-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors"><User size={20}/></div>
+                      <span className="bg-slate-100 text-slate-500 text-[9px] font-black px-3 py-1 rounded-lg uppercase">{cliente.totalGeral} Visitas</span>
+                    </div>
+                    <h4 className="font-bold text-slate-800 text-lg mb-1">{cliente.nome}</h4>
+                    <div className="flex items-center gap-2 text-emerald-600 font-black text-[11px]">
+                      <MessageCircle size={14}/> {cliente.telefone}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TELA: RELATÓRIOS COM BOTÃO VOLTAR PARA HOJE */}
+          {telaAtiva === "financeiro" && (
+            <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in">
+              <div className="flex justify-center">
+                <div className="flex items-center gap-4 bg-white p-2 rounded-2xl shadow-sm border">
+                  <button onClick={() => mudarDia(-1)} className="p-2 text-slate-400"><ChevronLeft/></button>
+                  <div onClick={() => abrirCalendario(inputFinanceiroRef)} className="flex items-center gap-3 px-4 py-1 cursor-pointer group">
+                    <CalendarIcon size={20} className="text-emerald-500"/>
+                    <span className="font-black text-slate-700 text-sm">{dataFormatada}</span>
+                    <input ref={inputFinanceiroRef} type="date" className="absolute w-0 h-0 opacity-0" onChange={(e) => e.target.value && setDataFiltro(new Date(e.target.value.replace(/-/g, '\/')))}/>
+                  </div>
+                  {dataFormatada !== hojeFormatado && (
+                    <button onClick={() => setDataFiltro(new Date())} className="p-2 bg-emerald-100 text-emerald-600 rounded-full hover:bg-emerald-600 hover:text-white transition-all">
+                      <RotateCcw size={14}/>
+                    </button>
+                  )}
+                  <button onClick={() => mudarDia(1)} className="p-2 text-slate-400"><ChevronRight/></button>
+                </div>
+              </div>
+              
+              {/* ESTATÍSTICAS REAIS PRESERVADAS */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[
+                  { label: 'Concluídos', status: 'concluido', icon: <CheckCircle2/>, bg: 'bg-[#1e293b]', text: 'text-white' },
+                  { label: 'Faltas', status: 'faltou', icon: <AlertCircle/>, bg: 'bg-white', text: 'text-slate-800' },
+                  { label: 'Cancelados', status: 'cancelado', icon: <Trash2/>, bg: 'bg-white', text: 'text-slate-800' }
+                ].map(item => (
+                  <div key={item.label} className={`${item.bg} ${item.text} p-10 rounded-[45px] shadow-sm flex flex-col items-center border border-slate-100`}>
+                    <div className="mb-4 text-emerald-500">{item.icon}</div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50 mb-2">{item.label}</p>
+                    <h3 className="text-5xl font-black">
+                      {clientesTodos.flatMap(c => c.historico || []).filter(h => h.status === item.status && h.dataAcao === dataFormatada).length}
+                    </h3>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* MODAL STATUS */}
+      {agendamentoSelecionado && (
+        <div className="fixed inset-0 bg-slate-900/80 z-[200] flex items-center justify-center p-4 backdrop-blur-md">
+          <div className="bg-white w-full max-w-sm rounded-[45px] overflow-hidden shadow-2xl">
+            <div className="bg-[#1e293b] p-8 text-white flex justify-between items-center">
+              <div>
+                <p className="text-[9px] font-black text-emerald-400 uppercase mb-1">Status</p>
+                <h3 className="font-bold text-lg">{agendamentoSelecionado.usuarioNome}</h3>
+              </div>
+              <button onClick={() => setAgendamentoSelecionado(null)}><X size={20}/></button>
+            </div>
+            <div className="p-8 space-y-3">
+              <button onClick={() => atualizarStatus(agendamentoSelecionado, 'concluido')} className="w-full p-4 bg-emerald-600 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2">
+                <CheckCircle2 size={18}/> CONCLUÍDO
+              </button>
+              <button onClick={() => atualizarStatus(agendamentoSelecionado, 'faltou')} className="w-full p-4 bg-amber-50 text-amber-700 rounded-2xl font-black text-xs">MARCAR FALTA</button>
+              <button onClick={() => atualizarStatus(agendamentoSelecionado, 'cancelado')} className="w-full p-4 text-red-500 font-black text-xs">CANCELAR</button>
             </div>
           </div>
-
-          {agendamentosTodos.length === 0 ? (
-            <div className="bg-white p-12 rounded-[35px] border-2 border-dashed border-gray-100 text-center text-gray-400 font-medium">
-              Nenhum agendamento realizado até agora.
-            </div>
-          ) : (
-            <div className="grid gap-4">
-              {agendamentosTodos.map((ag) => (
-                <div
-                  key={ag.id}
-                  onClick={() => setAgendamentoSelecionado(ag)}
-                  className="bg-white p-5 rounded-[30px] border-2 border-gray-50 shadow-sm flex flex-col md:flex-row md:justify-between md:items-center gap-4 hover:border-emerald-200 transition-all cursor-pointer active:scale-[0.98]"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="bg-emerald-50 p-4 rounded-2xl text-emerald-600 shrink-0">
-                      <Activity size={24} />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-gray-800 text-lg leading-tight">
-                        {ag.usuarioNome}
-                      </h3>
-                      <p className="text-emerald-600 font-bold text-sm uppercase tracking-wider">
-                        {ag.servico}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-6 px-4 py-2 bg-gray-50 rounded-2xl md:bg-transparent">
-                    <div className="flex items-center gap-2 text-gray-500 text-sm font-medium">
-                      <Calendar size={16} className="text-emerald-500" />
-                      <span>{ag.data}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-500 text-sm font-medium">
-                      <Clock size={16} className="text-emerald-500" />
-                      <span>{ag.horario}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
-      </main>
+      )}
 
-      {/* MODAL DE DETALHES (ABRE AO CLICAR NO CARD) */}
-      {agendamentoSelecionado && (
-        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-md rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
-            <div className="bg-emerald-600 p-6 text-white flex justify-between items-center">
-              <h3 className="font-bold text-lg uppercase">
-                Detalhes do Agendamento
-              </h3>
-              <button
-                onClick={() => setAgendamentoSelecionado(null)}
-                className="hover:bg-emerald-700 p-1 rounded-full"
-              >
-                <X size={24} />
-              </button>
+      {/* MODAL FICHA CLIENTE */}
+      {clienteFicha && (
+        <div className="fixed inset-0 bg-slate-900/80 z-[200] flex items-center justify-center p-4 backdrop-blur-md">
+          <div className="bg-white w-full max-w-lg rounded-[50px] h-[80vh] flex flex-col shadow-2xl">
+            <div className="p-8 border-b flex justify-between items-center">
+              <h3 className="font-black text-2xl text-slate-800">{clienteFicha.nome}</h3>
+              <button onClick={() => setClienteFicha(null)} className="p-2 bg-slate-50 rounded-full"><X size={20}/></button>
             </div>
-
-            <div className="p-8 space-y-6">
-              <div className="space-y-1">
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                  Paciente
-                </span>
-                <p className="text-xl font-bold text-gray-800">
-                  {agendamentoSelecionado.usuarioNome}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                    Data
-                  </span>
-                  <div className="flex items-center gap-2 font-bold text-gray-700">
-                    <Calendar size={16} /> {agendamentoSelecionado.data}
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                    Horário
-                  </span>
-                  <div className="flex items-center gap-2 font-bold text-gray-700">
-                    <Clock size={16} /> {agendamentoSelecionado.horario}
-                  </div>
+            <div className="flex-1 overflow-y-auto p-8 space-y-6">
+              <div className="flex gap-4">
+                <button onClick={() => window.open(`https://wa.me/55${clienteFicha.telefone?.replace(/\D/g,'')}`)} className="flex-1 bg-emerald-600 text-white p-4 rounded-3xl font-black text-[11px] uppercase flex items-center gap-2">
+                  <MessageCircle size={18}/> WhatsApp
+                </button>
+                <div className="px-6 py-4 bg-slate-50 rounded-3xl text-center border">
+                  <span className="text-slate-400 text-[9px] font-black uppercase">Visitas</span>
+                  <p className="font-black text-xl">{clienteFicha.totalGeral}</p>
                 </div>
               </div>
-
-              <div className="p-4 bg-emerald-50 rounded-2xl border-l-4 border-emerald-500">
-                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
-                  Serviço Solicitado
-                </span>
-                <p className="text-lg font-extrabold text-emerald-900">
-                  {agendamentoSelecionado.servico}
-                </p>
+              <h4 className="font-black text-slate-400 text-[10px] uppercase border-b pb-2">Histórico</h4>
+              <div className="space-y-2">
+                {clienteFicha.historico?.map((h, i) => (
+                  <div key={i} className="p-4 bg-slate-50 rounded-2xl flex justify-between items-center">
+                    <div>
+                      <p className="font-bold text-slate-800 text-sm">{h.servico}</p>
+                      <p className="text-[10px] text-slate-400">{h.data} • {h.horario}</p>
+                    </div>
+                    <span className={`text-[8px] font-black uppercase px-3 py-1 rounded-full ${h.status === 'concluido' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
+                      {h.status}
+                    </span>
+                  </div>
+                ))}
               </div>
-
-              <button
-                onClick={() => setAgendamentoSelecionado(null)}
-                className="w-full py-4 bg-gray-800 text-white rounded-2xl font-bold shadow-lg hover:bg-black transition-all"
-              >
-                Fechar Detalhes
-              </button>
             </div>
           </div>
         </div>
