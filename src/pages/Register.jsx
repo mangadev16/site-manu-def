@@ -6,27 +6,39 @@ import { Eye, EyeOff } from "lucide-react";
 
 const Register = () => {
   const [email, setEmail] = useState("");
-  const [confirmarEmail, setConfirmarEmail] = useState("");
+  const [whatsapp, setWhatsapp] = useState(""); 
   const [senha, setSenha] = useState("");
   const [nome, setNome] = useState("");
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [erro, setErro] = useState("");
   const navigate = useNavigate();
 
-  const lidarComRegistro = async (e) => {
-    e.preventDefault();
-    if (email !== confirmarEmail) {
-      setErro("Os e-mails não coincidem.");
-      return;
-    }
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
-      await updateProfile(userCredential.user, { displayName: nome });
-      navigate("/dashboard");
-    } catch (err) {
-      setErro("Erro ao criar conta.");
-    }
+  // Máscara e limite de dígitos
+  const formatarWhatsApp = (valor) => {
+    let v = valor.replace(/\D/g, ""); 
+    if (v.length > 11) v = v.slice(0, 11); 
+    if (v.length > 2) v = `(${v.slice(0, 2)}) ${v.slice(2)}`;
+    if (v.length > 10) v = `${v.slice(0, 10)}-${v.slice(10)}`;
+    return v;
   };
+
+  const lidarComRegistro = async (e) => {
+  e.preventDefault();
+  setErro("");
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
+    
+    // IMPORTANTE: Salvamos NOME + WHATSAPP usando o separador "|"
+    await updateProfile(userCredential.user, { 
+      displayName: `${nome}|${whatsapp}` 
+    });
+    
+    navigate("/dashboard");
+  } catch (err) {
+    // Exibe o erro real do Firebase para ajudar no diagnóstico
+    setErro(err.message); 
+  }
+};
 
   return (
     <div className="h-screen w-screen flex items-center justify-center bg-gradient-to-b from-[#228B44] to-[#3DB261] p-4 overflow-hidden font-sans">
@@ -60,10 +72,12 @@ const Register = () => {
             required
           />
           <input 
-            type="email" 
-            placeholder="Confirme seu e-mail" 
+            type="text" 
+            placeholder="WhatsApp (Ex: (11) 99999-9999)" 
+            value={whatsapp}
+            maxLength={15}
             className="w-full p-3.5 border border-gray-100 rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-emerald-500 text-base"
-            onChange={(e) => setConfirmarEmail(e.target.value)}
+            onChange={(e) => setWhatsapp(formatarWhatsApp(e.target.value))}
             required
           />
           <div className="relative">

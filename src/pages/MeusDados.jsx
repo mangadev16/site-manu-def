@@ -33,7 +33,53 @@ const MeusDados = () => {
     <div className="fixed inset-0 h-screen w-full bg-gray-50 font-sans flex flex-col overflow-hidden">
       
       {/* Overlay do Menu Mobile */}
-      {menuAberto && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setMenuAberto(false)} />}
+      {menuAberto && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-black/50 z-[50] transition-opacity"
+          onClick={() => setMenuAberto(false)}
+        />
+      )}
+
+      {/* Sidebar Mobile */}
+      <div className={`lg:hidden fixed top-0 left-0 h-full w-64 bg-white z-[60] shadow-2xl transform transition-transform duration-300 ${menuAberto ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="p-6 border-b flex justify-between items-center">
+          <span className="font-bold uppercase text-xs tracking-widest text-gray-400">
+            Menu Principal
+          </span>
+          <button onClick={() => setMenuAberto(false)}>
+            <X size={24} />
+          </button>
+        </div>
+        <nav className="p-4 flex flex-col gap-2">
+          <button
+            onClick={() => { navigate("/dashboard"); setMenuAberto(false); }}
+            className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 ${isAtivo("/dashboard") ? "bg-emerald-50 text-emerald-700" : "text-gray-600"}`}
+          >
+            <Activity size={18} /> Serviços
+          </button>
+          <button
+            onClick={() => { navigate("/agendamento"); setMenuAberto(false); }}
+            className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 ${isAtivo("/agendamento") ? "bg-emerald-50 text-emerald-700" : "text-gray-600"}`}
+          >
+            <PlusCircle size={18} /> Agendar Horário
+          </button>
+          <button
+            onClick={() => { navigate("/meus-dados"); setMenuAberto(false); }}
+            className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 ${isAtivo("/meus-dados") ? "bg-emerald-50 text-emerald-700" : "text-gray-600"}`}
+          >
+            <ClipboardList size={18} /> Meus Agendamentos
+          </button>
+          
+          <div className="mt-auto pt-4 border-t">
+             <button
+              onClick={() => auth.signOut()}
+              className="w-full p-4 rounded-xl text-left font-bold flex items-center gap-3 text-red-600"
+            >
+              <LogOut size={18} /> Sair da Conta
+            </button>
+          </div>
+        </nav>
+      </div>
 
       {/* HEADER IDÊNTICO AO DASHBOARD */}
       <header className="bg-[#059669] text-white p-4 flex justify-between items-center shadow-md z-50 shrink-0">
@@ -48,7 +94,7 @@ const MeusDados = () => {
           <div className="flex items-center gap-6">
             <div>
               <h1 className="font-bold text-sm leading-none uppercase tracking-tight">Manuela Bernardo</h1>
-              <p className="text-[10px] uppercase opacity-90 tracking-tighter">Meus Dados</p>
+              <p className="text-[10px] uppercase opacity-90 tracking-tighter">Nutrição • Acupuntura • Farmácia</p>
             </div>
 
             <nav className="hidden lg:flex items-center gap-1 ml-4 border-l border-emerald-400/30 pl-6">

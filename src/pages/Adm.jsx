@@ -1,12 +1,19 @@
 import React, { useState, useEffect, useRef } from "react";
 import { db, auth } from "../firebase";
-import { collection, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { collection, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, getDoc, setDoc } from "firebase/firestore";
 import { 
   User, LogOut, Calendar as CalendarIcon, Clock, X, Apple, Thermometer, Milestone,
   ChevronLeft, ChevronRight, RotateCcw, MessageCircle, ChevronRight as ChevronIcon,
   Users, BarChart3, CheckCircle2, AlertCircle, Trash2, LayoutDashboard, Menu, Search, Filter, ArrowUpDown, History, ChevronDown
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+
+const formatarData = (data) => {
+  const dia = String(data.getDate()).padStart(2, '0');
+  const mes = String(data.getMonth() + 1).padStart(2, '0');
+  const ano = data.getFullYear();
+  return `${dia}/${mes}/${ano}`;
+};
 
 const Adm = () => {
   const navigate = useNavigate();
@@ -47,30 +54,34 @@ const Adm = () => {
   };
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "usuarios"), (snapshot) => {
-      const todosAg = [];
-      const todosCl = [];
-      snapshot.forEach((doc) => {
-        const dados = doc.data();
-        // Garante que historico e agendamentos sejam tratados como arrays, mesmo se vazios no banco
-        const historico = dados.historico || [];
-        const agendamentosAtivos = dados.agendamentos || [];
-        
-        // CORREÇÃO: Adicionado verificação para não quebrar se o array não existir
-        todosCl.push({ 
-          id: doc.id, 
-          ...dados, 
-          totalGeral: (historico?.length || 0) + (agendamentosAtivos?.length || 0) 
-        });
+  const dataAlvo = formatarData(dataFiltro);
+  
+  const unsub = onSnapshot(doc(db, "agendamentos", dataAlvo), (docSnap) => {
+    if (docSnap.exists()) {
+      const dados = docSnap.data();
+      const ags = dados.agendamentos || [];
+      // Injetamos o campo 'data' apenas para controle da interface
+      setAgendamentosTodos(ags.map(item => ({ ...item, data: dataAlvo })));
+    } else {
+      setAgendamentosTodos([]);
+    }
+  });
+  
+  return () => unsub();
+}, [dataFiltro]);
 
-        agendamentosAtivos.forEach(ag => {
-          todosAg.push({ ...ag, usuarioNome: dados.nome || "Cliente", uid: doc.id });
-        });
-      });
-      setAgendamentosTodos(todosAg);
-      setClientesTodos(todosCl);
+  // 2. Efeito para carregar os Clientes
+  useEffect(() => {
+    const unsubClientes = onSnapshot(collection(db, "usuarios"), (snap) => {
+      const lista = snap.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data(),
+        totalGeral: doc.data().historico?.length || 0 
+      }));
+      setClientesTodos(lista);
     });
-    return () => unsub();
+
+    return () => unsubClientes();
   }, []);
 
   const dataFormatada = dataFiltro.toLocaleDateString('pt-BR');
@@ -109,16 +120,48 @@ const Adm = () => {
     });
 
   const atualizarStatus = async (ag, novoStatus) => {
-    try {
-      const userRef = doc(db, "usuarios", ag.uid);
-      await updateDoc(userRef, {
-        agendamentos: arrayRemove({ id: ag.id, data: ag.data, horario: ag.horario, servico: ag.servico }),
-        historico: arrayUnion({ ...ag, status: novoStatus, dataAcao: ag.data }) 
-      });
-      setAgendamentoSelecionado(null);
-    } catch (e) { console.error(e); }
-  };
+  try {
+    const dataDoc = ag.data; 
+    if (!dataDoc) return alert("Data não identificada.");
 
+    const agRef = doc(db, "agendamentos", dataDoc);
+    const clienteRef = doc(db, "usuarios", ag.uid);
+
+    // 1. Pega os dados atuais do banco
+    const docSnap = await getDoc(agRef);
+    if (!docSnap.exists()) return;
+
+    const listaAgendamentos = docSnap.data().agendamentos || [];
+
+    // 2. Removemos o item da lista comparando apenas o ID (muito mais seguro)
+    const novaLista = listaAgendamentos.filter(item => String(item.id) !== String(ag.id));
+
+    // 3. Preparamos o item para o histórico (removendo a chave 'data' da interface)
+    const itemHistorico = { ...ag };
+    delete itemHistorico.data; // Remove campo temporário
+    itemHistorico.status = novoStatus;
+    itemHistorico.dataConclusao = dataDoc;
+
+    // 4. Grava a lista nova (sem o agendamento) e o histórico
+    await updateDoc(agRef, {
+      agendamentos: novaLista,
+      historico: arrayUnion(itemHistorico)
+    });
+
+    // 5. Atualiza a ficha do cliente
+    if (ag.uid) {
+      await updateDoc(clienteRef, {
+        historico: arrayUnion(itemHistorico)
+      });
+    }
+
+    setAgendamentoSelecionado(null);
+    alert("Status atualizado!");
+  } catch (e) {
+    console.error("Erro crítico:", e);
+    alert("Erro ao salvar. Verifique o console.");
+  }
+};
   // Componente Reutilizável do Seletor de Data com o Botão de Reset Externo
   const SeletorData = ({ inputRef }) => (
     <div className="flex items-center gap-3">
