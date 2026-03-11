@@ -124,31 +124,33 @@ const Adm = () => {
     const dataDoc = ag.data; 
     if (!dataDoc) return alert("Data não identificada.");
 
+    // DEFINIÇÃO DA VARIÁVEL: Criamos a data formatada para usar no histórico
+    const dataConclusaoFormatada = formatarData(dataFiltro); 
+
     const agRef = doc(db, "agendamentos", dataDoc);
     const clienteRef = doc(db, "usuarios", ag.uid);
 
-    // 1. Pega os dados atuais do banco
     const docSnap = await getDoc(agRef);
     if (!docSnap.exists()) return;
 
     const listaAgendamentos = docSnap.data().agendamentos || [];
-
-    // 2. Removemos o item da lista comparando apenas o ID (muito mais seguro)
     const novaLista = listaAgendamentos.filter(item => String(item.id) !== String(ag.id));
 
-    // 3. Preparamos o item para o histórico (removendo a chave 'data' da interface)
+    // Preparação do item para o histórico
     const itemHistorico = { ...ag };
-    delete itemHistorico.data; // Remove campo temporário
+    delete itemHistorico.data; 
     itemHistorico.status = novoStatus;
-    itemHistorico.dataConclusao = dataDoc;
+    
+    // Usamos a variável definida acima para salvar no banco
+    itemHistorico.dataConclusao = dataConclusaoFormatada; 
 
-    // 4. Grava a lista nova (sem o agendamento) e o histórico
+    // Atualiza o documento de agendamentos do dia
     await updateDoc(agRef, {
       agendamentos: novaLista,
       historico: arrayUnion(itemHistorico)
     });
 
-    // 5. Atualiza a ficha do cliente
+    // Atualiza a ficha individual do cliente
     if (ag.uid) {
       await updateDoc(clienteRef, {
         historico: arrayUnion(itemHistorico)
@@ -235,7 +237,7 @@ const Adm = () => {
                     <div className="mb-4 text-emerald-500">{item.icon}</div>
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50 mb-2">{item.label}</p>
                     <h3 className="text-5xl font-black">
-                      {clientesTodos.flatMap(c => c.historico || []).filter(h => h.status === item.status && h.dataAcao === dataFormatada).length}
+                      {clientesTodos.flatMap(c => c.historico || []).filter(h => h.status === item.status && h.dataConclusao ===formatarData(dataFiltro)).length}
                     </h3>
                   </div>
                 ))}
@@ -346,7 +348,7 @@ const Adm = () => {
             <div className="p-8 space-y-3">
               <button onClick={() => atualizarStatus(agendamentoSelecionado, 'concluido')} className="w-full p-4 bg-emerald-600 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2"><CheckCircle2 size={18}/> CONCLUÍDO</button>
               <button onClick={() => atualizarStatus(agendamentoSelecionado, 'faltou')} className="w-full p-4 bg-amber-50 text-amber-700 rounded-2xl font-black text-xs">MARCAR FALTA</button>
-              <button onClick={() => atualizarStatus(agendamentoSelecionado, 'cancelado')} className="w-full p-4 text-red-500 font-black text-xs">CANCELAR</button>
+              <button onClick={() => atualizarStatus(agendamentoSelecionado, 'cancelado')} className="w-full p-4 text-red-500 font-black text-xs">CANCELAR HORÁRIO</button>
             </div>
           </div>
         </div>

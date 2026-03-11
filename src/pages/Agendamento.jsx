@@ -37,12 +37,20 @@ const Agendamento = () => {
 
 const finalizarAgendamento = async (servicoEscolhido) => {
   try {
+    // 1. PRIMEIRO: Pegamos o usuário. Sem isso, nada abaixo funciona.
     const user = auth.currentUser;
-    if (!user) return alert("Usuário não autenticado");
+    if (!user) return alert("Usuário não autenticado. Por favor, faça login novamente.");
 
-    const [nome] = user.displayName ? user.displayName.split("|") : ["Usuário"];
-    const whatsapp = user.displayName?.includes("|") ? user.displayName.split("|")[1] : "";
+    // 2. SEGUNDO: Agora que temos o 'user', criamos as referências.
+    const clienteRef = doc(db, "usuarios", user.uid); 
+    const clienteSnap = await getDoc(clienteRef);
 
+    // 3. TERCEIRO: Tratamos os dados de nome e whatsapp
+    const nomeCompleto = user.displayName || "Usuário";
+    const nome = nomeCompleto.includes("|") ? nomeCompleto.split("|")[0] : nomeCompleto;
+    const whatsapp = nomeCompleto.includes("|") ? nomeCompleto.split("|")[1] : "";
+
+    // 4. QUARTO: Formatamos a data para o documento
     const dia = String(dataSelecionada.getDate()).padStart(2, '0');
     const mes = String(dataSelecionada.getMonth() + 1).padStart(2, '0');
     const ano = dataSelecionada.getFullYear();
@@ -50,9 +58,8 @@ const finalizarAgendamento = async (servicoEscolhido) => {
 
     const agendamentoRef = doc(db, "agendamentos", dataFormatada);
     
-    // OBJETO PADRÃO (Sem o campo 'data' dentro dele, pois a data é o ID do documento)
     const novoAgendamento = {
-      id: String(Date.now()), // ID como String para evitar problemas
+      id: String(Date.now()),
       usuarioNome: nome,
       telefone: whatsapp,
       email: user.email,
@@ -62,6 +69,17 @@ const finalizarAgendamento = async (servicoEscolhido) => {
       uid: user.uid
     };
 
+    // 5. QUINTO: Gravamos no banco (Aqui as coleções surgirão no Firebase)
+    if (!clienteSnap.exists()) {
+      await setDoc(clienteRef, {
+        nome: nome,
+        telefone: whatsapp,
+        email: user.email,
+        uid: user.uid,
+        historico: [] 
+      });
+    }
+
     const docSnap = await getDoc(agendamentoRef);
     if (docSnap.exists()) {
       await updateDoc(agendamentoRef, { agendamentos: arrayUnion(novoAgendamento) });
@@ -69,10 +87,11 @@ const finalizarAgendamento = async (servicoEscolhido) => {
       await setDoc(agendamentoRef, { agendamentos: [novoAgendamento] });
     }
 
-    alert("Agendamento realizado!");
+    alert("Agendamento realizado com sucesso!");
     navigate("/dashboard");
   } catch (error) {
-    console.error(error);
+    console.error("Erro completo ao agendar:", error);
+    alert("Erro técnico: " + error.message);
   }
 };
 
