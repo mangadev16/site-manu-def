@@ -43,7 +43,7 @@ const Login = () => {
             Manuela Bernardo
           </div>
           <h2 className="text-xl font-extrabold text-[#1f2937] leading-tight uppercase">
-            {modoAdmin ? "Acesso Administrativo" : "Nutrição e Acupuntura"}
+            {modoAdmin ? "Acesso Administrativo" : "Nutrição, Acupuntura e Farmácia"}
           </h2>
           <p className="text-[#059669] text-[10px] font-bold tracking-widest uppercase mt-1">
             {modoAdmin ? "Painel de Controle" : "Acesso ao Consultório"}
