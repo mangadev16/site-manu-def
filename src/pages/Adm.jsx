@@ -25,6 +25,15 @@ const Adm = () => {
   const [agendamentosTodos, setAgendamentosTodos] = useState([]);
   const [clientesTodos, setClientesTodos] = useState([]);
   const [dataFiltro, setDataFiltro] = useState(new Date()); 
+  const agendamentosDoDia = agendamentosTodos.find(
+  (a) => a.id === formatarData(dataFiltro)
+    )?.agendamentos || [];
+
+  const totais = {
+    Nutrição: agendamentosDoDia.filter(ag => ag.servico === "Nutrição").length,
+    Acupuntura: agendamentosDoDia.filter(ag => ag.servico === "Acupuntura").length,
+    Farmácia: agendamentosDoDia.filter(ag => ag.servico === "Farmácia").length
+  };
   const [buscaCliente, setBuscaCliente] = useState("");
   
   const [filtrosAtivos, setFiltrosAtivos] = useState([]); 
@@ -188,6 +197,8 @@ const Adm = () => {
         </button>
       )}
     </div>
+
+    
   );
 
   return (

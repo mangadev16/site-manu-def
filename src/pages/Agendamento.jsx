@@ -37,27 +37,29 @@ const Agendamento = () => {
 
 const finalizarAgendamento = async (servicoEscolhido) => {
   try {
-    // 1. PRIMEIRO: Pegamos o usuário. Sem isso, nada abaixo funciona.
+    // 1. OBTER O UTILIZADOR PRIMEIRO
     const user = auth.currentUser;
-    if (!user) return alert("Usuário não autenticado. Por favor, faça login novamente.");
+    if (!user) {
+      alert("Sessão expirada. Por favor, faça login novamente.");
+      return;
+    }
 
-    // 2. SEGUNDO: Agora que temos o 'user', criamos as referências.
-    const clienteRef = doc(db, "usuarios", user.uid); 
-    const clienteSnap = await getDoc(clienteRef);
-
-    // 3. TERCEIRO: Tratamos os dados de nome e whatsapp
+    // 2. CRIAR AS REFERÊNCIAS DENTRO DO TRY (após ter o user)
+    const clienteRef = doc(db, "usuarios", user.uid);
+    
+    // 3. TRATAR DADOS DO PERFIL
     const nomeCompleto = user.displayName || "Usuário";
     const nome = nomeCompleto.includes("|") ? nomeCompleto.split("|")[0] : nomeCompleto;
     const whatsapp = nomeCompleto.includes("|") ? nomeCompleto.split("|")[1] : "";
 
-    // 4. QUARTO: Formatamos a data para o documento
+    // 4. FORMATAR A DATA PARA O DOCUMENTO
     const dia = String(dataSelecionada.getDate()).padStart(2, '0');
     const mes = String(dataSelecionada.getMonth() + 1).padStart(2, '0');
     const ano = dataSelecionada.getFullYear();
     const dataFormatada = `${dia}/${mes}/${ano}`;
 
     const agendamentoRef = doc(db, "agendamentos", dataFormatada);
-    
+
     const novoAgendamento = {
       id: String(Date.now()),
       usuarioNome: nome,
@@ -69,29 +71,39 @@ const finalizarAgendamento = async (servicoEscolhido) => {
       uid: user.uid
     };
 
-    // 5. QUINTO: Gravamos no banco (Aqui as coleções surgirão no Firebase)
+    // 5. GRAVAR NO FIREBASE (Sequência correta)
+    
+    // Primeiro: Garante que o perfil do cliente existe (para aparecer no painel ADM)
+    const clienteSnap = await getDoc(clienteRef);
     if (!clienteSnap.exists()) {
       await setDoc(clienteRef, {
         nome: nome,
         telefone: whatsapp,
         email: user.email,
         uid: user.uid,
-        historico: [] 
+        historico: []
       });
     }
 
+    // Segundo: Grava o agendamento do dia
     const docSnap = await getDoc(agendamentoRef);
     if (docSnap.exists()) {
-      await updateDoc(agendamentoRef, { agendamentos: arrayUnion(novoAgendamento) });
+      await updateDoc(agendamentoRef, {
+        agendamentos: arrayUnion(novoAgendamento)
+      });
     } else {
-      await setDoc(agendamentoRef, { agendamentos: [novoAgendamento] });
+      await setDoc(agendamentoRef, {
+        agendamentos: [novoAgendamento]
+      });
     }
 
     alert("Agendamento realizado com sucesso!");
     navigate("/dashboard");
+
   } catch (error) {
-    console.error("Erro completo ao agendar:", error);
-    alert("Erro técnico: " + error.message);
+    // Se o banco estiver vazio, o erro aparecerá aqui no console
+    console.error("Erro detalhado do Firebase:", error);
+    alert("Erro ao gravar: " + error.message);
   }
 };
 
