@@ -3,7 +3,7 @@ import { auth } from "../firebase";
 import { useNavigate, useLocation } from "react-router-dom";
 import { 
   User, LogOut, Settings, ChevronDown, Apple, 
-  Activity, Thermometer, X, ClipboardList, Milestone, PlusCircle 
+  Activity, Thermometer, X, ClipboardList, PenLine, PlusCircle 
 } from "lucide-react";
 
 const Dashboard = () => {
@@ -43,7 +43,7 @@ const Dashboard = () => {
     id: 2, 
     nome: "Acupuntura", 
     desc: "Equilíbrio e alívio de dores.", 
-    icon: <Milestone className="text-emerald-600" size={24} />,
+    icon: <PenLine className="text-emerald-600" size={24} />,
     path: "/Acupuntura" // <--- ADICIONE AQUI
   },
   { 

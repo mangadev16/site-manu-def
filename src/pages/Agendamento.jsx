@@ -1,22 +1,31 @@
 import React, { useState, useEffect } from "react";
 import { auth, db } from "../firebase";
-import { doc, updateDoc, arrayUnion, setDoc, getDoc } from "firebase/firestore";
+import {
+  doc,
+  updateDoc,
+  arrayUnion,
+  collection,
+  query,
+  where,
+  getDocs,
+  addDoc,
+} from "firebase/firestore";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   ArrowLeft,
-  Calendar as CalendarIcon,
-  Clock,
+  PenLine,
   ChevronLeft,
+  X,
   ChevronRight,
   CheckCircle2,
   User,
   ChevronDown,
   Activity,
   PlusCircle,
+  ClipboardList,
   RotateCcw,
   Settings,
   LogOut,
-  ClipboardList
 } from "lucide-react";
 
 const Agendamento = () => {
@@ -27,6 +36,9 @@ const Agendamento = () => {
   const [horarioSelecionado, setHorarioSelecionado] = useState(null);
   const [mesAtual, setMesAtual] = useState(new Date());
   const [perfilAberto, setPerfilAberto] = useState(false);
+  const [menuAberto, setMenuAberto] = useState(false);
+  const [horariosOcupados, setHorariosOcupados] = useState([]);
+  const [servicoSelecionado, setServicoSelecionado] = useState(null);
 
   // Lógica de Nome (igual ao Dashboard)
   const nomeCompleto = auth.currentUser?.displayName || "Usuário";
@@ -34,78 +46,61 @@ const Agendamento = () => {
     ? nomeCompleto.split("|")[0]
     : nomeCompleto;
 
+  useEffect(() => {
+    const buscarHorariosOcupados = async () => {
+      try {
+        const dataString = dataSelecionada.toLocaleDateString("pt-BR");
 
-const finalizarAgendamento = async (servicoEscolhido) => {
-  try {
-    // 1. OBTER O UTILIZADOR PRIMEIRO
-    const user = auth.currentUser;
-    if (!user) {
-      alert("Sessão expirada. Por favor, faça login novamente.");
-      return;
-    }
+        const q = query(
+          collection(db, "agendamentos"),
+          where("data", "==", dataString)
+        );
 
-    // 2. CRIAR AS REFERÊNCIAS DENTRO DO TRY (após ter o user)
-    const clienteRef = doc(db, "usuarios", user.uid);
-    
-    // 3. TRATAR DADOS DO PERFIL
-    const nomeCompleto = user.displayName || "Usuário";
-    const nome = nomeCompleto.includes("|") ? nomeCompleto.split("|")[0] : nomeCompleto;
-    const whatsapp = nomeCompleto.includes("|") ? nomeCompleto.split("|")[1] : "";
-
-    // 4. FORMATAR A DATA PARA O DOCUMENTO
-    const dia = String(dataSelecionada.getDate()).padStart(2, '0');
-    const mes = String(dataSelecionada.getMonth() + 1).padStart(2, '0');
-    const ano = dataSelecionada.getFullYear();
-    const dataFormatada = `${dia}/${mes}/${ano}`;
-
-    const agendamentoRef = doc(db, "agendamentos", dataFormatada);
-
-    const novoAgendamento = {
-      id: String(Date.now()),
-      usuarioNome: nome,
-      telefone: whatsapp,
-      email: user.email,
-      horario: horarioSelecionado,
-      servico: servicoEscolhido,
-      status: "pendente",
-      uid: user.uid
+        const querySnapshot = await getDocs(q);
+        const ocupados = querySnapshot.docs.map((doc) => doc.data().horario);
+        setHorariosOcupados(ocupados);
+      } catch (error) {
+        console.error("Erro ao buscar horários:", error);
+      }
     };
 
-    // 5. GRAVAR NO FIREBASE (Sequência correta)
-    
-    // Primeiro: Garante que o perfil do cliente existe (para aparecer no painel ADM)
-    const clienteSnap = await getDoc(clienteRef);
-    if (!clienteSnap.exists()) {
-      await setDoc(clienteRef, {
-        nome: nome,
-        telefone: whatsapp,
-        email: user.email,
-        uid: user.uid,
-        historico: []
+    buscarHorariosOcupados();
+  }, [dataSelecionada]);
+
+  const finalizarAgendamento = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const dataString = dataSelecionada.toLocaleDateString("pt-BR");
+
+      const novoAgendamento = {
+        servico: servicoSelecionado,
+        data: dataString,
+        horario: horarioSelecionado,
+        status: "pendente",
+        timestamp: new Date(),
+      };
+
+      await addDoc(collection(db, "agendamentos"), {
+        ...novoAgendamento,
+        userId: user.uid,
+        userName: user.displayName || "Paciente",
       });
+
+      const userRef = doc(db, "usuarios", user.uid);
+      await updateDoc(userRef, {
+        agendamentos: arrayUnion({
+          ...novoAgendamento,
+          id: Date.now().toString(),
+        }),
+      });
+
+      setEtapa(5);
+    } catch (error) {
+      console.error("Erro ao finalizar:", error);
     }
-
-    // Segundo: Grava o agendamento do dia
-    const docSnap = await getDoc(agendamentoRef);
-    if (docSnap.exists()) {
-      await updateDoc(agendamentoRef, {
-        agendamentos: arrayUnion(novoAgendamento)
-      });
-    } else {
-      await setDoc(agendamentoRef, {
-        agendamentos: [novoAgendamento]
-      });
-    }
-
-    alert("Agendamento realizado com sucesso!");
-    navigate("/dashboard");
-
-  } catch (error) {
-    // Se o banco estiver vazio, o erro aparecerá aqui no console
-    console.error("Erro detalhado do Firebase:", error);
-    alert("Erro ao gravar: " + error.message);
-  }
-};
+  };
 
   const horarios = [
     "09:00",
@@ -118,9 +113,8 @@ const finalizarAgendamento = async (servicoEscolhido) => {
     "16:00",
     "17:00",
   ];
-  const servicos = ["Nutrição", "Acupuntura", "Farmácia"];
 
-  // Lógica de Calendário (estilo ADM)
+  // Lógica de Calendário
   const mudarMes = (dir) =>
     setMesAtual(new Date(mesAtual.getFullYear(), mesAtual.getMonth() + dir, 1));
   const irParaHoje = () => {
@@ -132,12 +126,12 @@ const finalizarAgendamento = async (servicoEscolhido) => {
   const diasNoMes = new Date(
     mesAtual.getFullYear(),
     mesAtual.getMonth() + 1,
-    0,
+    0
   ).getDate();
   const primeiroDia = new Date(
     mesAtual.getFullYear(),
     mesAtual.getMonth(),
-    1,
+    1
   ).getDay();
   const isAtivo = (rota) => location.pathname === rota;
 
@@ -147,14 +141,16 @@ const finalizarAgendamento = async (servicoEscolhido) => {
       <header className="bg-[#059669] text-white p-4 flex justify-between items-center shadow-md z-50 shrink-0">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate("/dashboard")}
-            className="bg-white text-[#059669] font-bold rounded-full w-10 h-10 flex items-center justify-center shadow-md shrink-0"
+            onClick={() => {
+              if (window.innerWidth < 1024) setMenuAberto(true);
+            }}
+            className="bg-white text-[#059669] font-bold rounded-full w-10 h-10 flex items-center justify-center shadow-md shrink-0 lg:cursor-default"
           >
             MB
           </button>
 
           <div className="flex items-center gap-6">
-            <div className="hidden sm:block">
+            <div>
               <h1 className="font-bold text-sm leading-none uppercase tracking-tight">
                 Manuela Bernardo
               </h1>
@@ -166,19 +162,31 @@ const finalizarAgendamento = async (servicoEscolhido) => {
             <nav className="hidden lg:flex items-center gap-1 ml-4 border-l border-emerald-400/30 pl-6">
               <button
                 onClick={() => navigate("/dashboard")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${isAtivo("/dashboard") ? "bg-emerald-700/50" : "hover:bg-emerald-700/30"}`}
+                className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${
+                  isAtivo("/dashboard")
+                    ? "bg-emerald-700/50"
+                    : "hover:bg-emerald-700/30"
+                }`}
               >
                 <Activity size={14} /> Serviços
               </button>
               <button
                 onClick={() => navigate("/agendamento")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${isAtivo("/agendamento") ? "bg-emerald-700/50" : "hover:bg-emerald-700/30"}`}
+                className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${
+                  isAtivo("/agendamento")
+                    ? "bg-emerald-700/50"
+                    : "hover:bg-emerald-700/30"
+                }`}
               >
                 <PlusCircle size={14} /> Agendar Horário
               </button>
               <button
                 onClick={() => navigate("/meus-dados")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${isAtivo("/perfil") ? "bg-emerald-700/50" : "hover:bg-emerald-700/30"}`}
+                className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${
+                  isAtivo("/meus-dados")
+                    ? "bg-emerald-700/50"
+                    : "hover:bg-emerald-700/30"
+                }`}
               >
                 <ClipboardList size={14} /> Meus Dados
               </button>
@@ -204,8 +212,7 @@ const finalizarAgendamento = async (servicoEscolhido) => {
                 onClick={() => navigate("/perfil")}
                 className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-emerald-50 flex items-center gap-2"
               >
-                <Settings size={16} className="text-emerald-600" /> Dados da
-                Conta
+                <Settings size={16} className="text-emerald-600" /> Dados da Conta
               </button>
               <button
                 onClick={() => auth.signOut()}
@@ -218,12 +225,13 @@ const finalizarAgendamento = async (servicoEscolhido) => {
         </div>
       </header>
 
-      {/* ÁREA DE AGENDAMENTO COM CONTROLES ESTILO ADM */}
+      {/* ÁREA DE AGENDAMENTO */}
       <main className="flex-1 overflow-y-auto p-4 flex flex-col items-center bg-gray-50">
         <div className="w-full max-w-md bg-white rounded-[35px] shadow-xl border border-emerald-50 overflow-hidden">
+          
+          {/* ETAPA 1: CALENDÁRIO */}
           {etapa === 1 && (
             <div className="p-6">
-              {/* CONTROLES DE DATA ESTILO ADM */}
               <div className="flex items-center justify-between mb-6 bg-emerald-50 p-2 rounded-2xl">
                 <div className="flex gap-1">
                   <button
@@ -255,14 +263,15 @@ const finalizarAgendamento = async (servicoEscolhido) => {
                 </button>
               </div>
 
-              {/* GRID DO CALENDÁRIO */}
               <div className="grid grid-cols-7 gap-1 mb-4">
-  {/* CORREÇÃO: Usando o index 'i' para evitar erro de chaves duplicadas */}
-  {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
-    <div key={i} className="text-center text-[10px] font-black text-emerald-200 py-2">
-      {d}
-    </div>
-  ))}
+                {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
+                  <div
+                    key={i}
+                    className="text-center text-[10px] font-black text-emerald-200 py-2"
+                  >
+                    {d}
+                  </div>
+                ))}
                 {[...Array(primeiroDia)].map((_, i) => (
                   <div key={`empty-${i}`} />
                 ))}
@@ -271,7 +280,7 @@ const finalizarAgendamento = async (servicoEscolhido) => {
                   const data = new Date(
                     mesAtual.getFullYear(),
                     mesAtual.getMonth(),
-                    dia,
+                    dia
                   );
                   const isSelecionado =
                     data.toDateString() === dataSelecionada.toDateString();
@@ -283,8 +292,16 @@ const finalizarAgendamento = async (servicoEscolhido) => {
                       key={dia}
                       onClick={() => setDataSelecionada(data)}
                       className={`h-10 w-10 mx-auto rounded-xl flex items-center justify-center font-bold text-sm transition-all
-                        ${isSelecionado ? "bg-emerald-600 text-white shadow-lg scale-110" : "text-gray-600 hover:bg-emerald-50"}
-                        ${isHoje && !isSelecionado ? "border-2 border-emerald-200 text-emerald-600" : ""}`}
+                        ${
+                          isSelecionado
+                            ? "bg-emerald-600 text-white shadow-lg scale-110"
+                            : "text-gray-600 hover:bg-emerald-50"
+                        }
+                        ${
+                          isHoje && !isSelecionado
+                            ? "border-2 border-emerald-200 text-emerald-600"
+                            : ""
+                        }`}
                     >
                       {dia}
                     </button>
@@ -301,7 +318,7 @@ const finalizarAgendamento = async (servicoEscolhido) => {
             </div>
           )}
 
-          {/* AS ETAPAS 2 E 3 SEGUEM A LÓGICA QUE VOCÊ JÁ TINHA */}
+          {/* ETAPA 2: HORÁRIOS */}
           {etapa === 2 && (
             <div className="p-6">
               <button
@@ -314,47 +331,216 @@ const finalizarAgendamento = async (servicoEscolhido) => {
                 Horários disponíveis:
               </h3>
               <div className="grid grid-cols-3 gap-3">
-                {horarios.map((h) => (
-                  <button
-                    key={h}
-                    onClick={() => {
-                      setHorarioSelecionado(h);
-                      setEtapa(3);
-                    }}
-                    className="p-4 rounded-2xl border-2 border-gray-100 font-bold text-gray-700 hover:border-emerald-500 hover:bg-emerald-50 transition-all"
-                  >
-                    {h}
-                  </button>
-                ))}
+                {horarios.map((hora) => {
+                  const estaOcupado = horariosOcupados.includes(hora);
+
+                  return (
+                    <button
+                      key={hora}
+                      disabled={estaOcupado}
+                      onClick={() => {
+                        setHorarioSelecionado(hora);
+                        setEtapa(3);
+                      }}
+                      className={`p-4 rounded-2xl font-bold border-2 transition-all ${
+                        estaOcupado
+                          ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-60"
+                          : horarioSelecionado === hora
+                          ? "bg-emerald-600 border-emerald-600 text-white shadow-lg"
+                          : "bg-white border-emerald-50 text-gray-700 hover:border-emerald-200"
+                      }`}
+                    >
+                      {estaOcupado ? "Ocupado" : hora}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
-           {/* ETAPA 3: SERVIÇOS (AQUI CHAMA FINALIZAR) */}
+          {/* ETAPA 3: SELEÇÃO DE SERVIÇO */}
           {etapa === 3 && (
             <div className="p-6 space-y-3">
-              <button onClick={() => setEtapa(2)} className="flex items-center gap-2 text-emerald-600 font-bold mb-2 text-sm"><ArrowLeft size={16}/> Voltar</button>
-              <div className="bg-emerald-50 p-4 rounded-2xl text-center mb-4">
-                <p className="text-gray-700 font-bold">{dataSelecionada.toLocaleDateString('pt-BR')} às {horarioSelecionado}</p>
+              <button
+                onClick={() => setEtapa(2)}
+                className="flex items-center gap-2 text-emerald-600 font-bold mb-2 text-sm"
+              >
+                <ArrowLeft size={16} /> Voltar
+              </button>
+
+              <div className="bg-emerald-50 p-4 rounded-2xl text-center mb-4 border border-emerald-100">
+                <p className="text-gray-700 font-bold">
+                  {dataSelecionada.toLocaleDateString("pt-BR")} às{" "}
+                  {horarioSelecionado}
+                </p>
               </div>
+
               {[
-                { id: 'Nutrição', icon: <Activity className="text-emerald-600"/>, cor: 'bg-emerald-50' },
-                { id: 'Acupuntura', icon: <PlusCircle className="text-blue-600"/>, cor: 'bg-blue-50' },
-                { id: 'Farmácia', icon: <ClipboardList className="text-purple-600"/>, cor: 'bg-purple-50' }
-              ].map(s => (
-                <button key={s.id} onClick={() => finalizarAgendamento(s.id)}
-                  className={`w-full p-5 rounded-2xl border-2 border-gray-100 flex items-center justify-between hover:border-emerald-500 transition-all ${s.cor}`}>
+                {
+                  id: "Nutrição",
+                  icon: <Activity className="text-emerald-600" />,
+                  cor: "bg-emerald-50",
+                },
+                {
+                  id: "Acupuntura",
+                  icon: <PenLine className="text-blue-600" />,
+                  cor: "bg-blue-50",
+                },
+                {
+                  id: "Farmácia",
+                  icon: <ClipboardList className="text-purple-600" />,
+                  cor: "bg-purple-50",
+                },
+              ].map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => {
+                    setServicoSelecionado(s.id);
+                    setEtapa(4);
+                  }}
+                  className={`w-full p-5 rounded-2xl border-2 border-gray-100 flex items-center justify-between hover:border-emerald-500 transition-all ${s.cor}`}
+                >
                   <div className="flex items-center gap-4">
-                    <div className="bg-white p-2 rounded-lg shadow-sm">{s.icon}</div>
+                    <div className="bg-white p-2 rounded-lg shadow-sm">
+                      {s.icon}
+                    </div>
                     <span className="font-bold text-gray-700">{s.id}</span>
                   </div>
-                  <CheckCircle2 className="text-emerald-500" />
+                  <ChevronRight size={20} className="text-gray-400" />
                 </button>
               ))}
             </div>
           )}
+
+          {/* ETAPA 4: RESUMO E CONFIRMAÇÃO */}
+          {etapa === 4 && (
+            <div className="p-6 space-y-4">
+              <button
+                onClick={() => setEtapa(3)}
+                className="flex items-center gap-2 text-emerald-600 font-bold mb-2 text-sm"
+              >
+                <ArrowLeft size={16} /> Voltar
+              </button>
+
+              <div className="bg-white border border-emerald-100 rounded-2xl p-6 text-center space-y-4 shadow-sm">
+                <h2 className="font-bold text-gray-800 text-lg uppercase tracking-tight">
+                  Confirmar Agendamento
+                </h2>
+                <div className="flex flex-col gap-2 text-gray-600 text-sm text-left bg-gray-50 p-4 rounded-xl">
+                  <p className="flex justify-between border-b border-gray-200 pb-2">
+                    <span className="font-bold">Serviço:</span>{" "}
+                    {servicoSelecionado}
+                  </p>
+                  <p className="flex justify-between border-b border-gray-200 pb-2">
+                    <span className="font-bold">Data:</span>{" "}
+                    {dataSelecionada.toLocaleDateString("pt-BR")}
+                  </p>
+                  <p className="flex justify-between pb-2">
+                    <span className="font-bold">Horário:</span>{" "}
+                    {horarioSelecionado}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={finalizarAgendamento}
+                className="w-full bg-emerald-600 text-white font-bold rounded-2xl p-4 hover:bg-emerald-700 transition-colors shadow-md"
+              >
+                Confirmar e Finalizar
+              </button>
+            </div>
+          )}
+
+          {/* ETAPA 5: SUCESSO */}
+          {etapa === 5 && (
+            <div className="p-6 text-center py-10 space-y-6 animate-in fade-in zoom-in duration-500">
+              <div className="flex justify-center">
+                <div className="bg-emerald-100 p-6 rounded-full">
+                  <CheckCircle2 size={80} className="text-emerald-600" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h2 className="text-3xl font-bold text-gray-800">Agendado!</h2>
+                <p className="text-gray-600">
+                  Seu horário foi reservado com sucesso.
+                </p>
+              </div>
+
+              <div className="bg-white border border-emerald-100 rounded-3xl p-6 shadow-sm inline-block w-full">
+                <p className="text-emerald-800 font-bold text-lg">
+                  {servicoSelecionado}
+                </p>
+                <p className="text-gray-500">
+                  {dataSelecionada.toLocaleDateString("pt-BR")} às{" "}
+                  {horarioSelecionado}
+                </p>
+              </div>
+
+              <button
+                onClick={() => navigate("/dashboard")}
+                className="w-full bg-emerald-600 text-white font-bold rounded-2xl p-4 hover:bg-emerald-700 transition-all shadow-lg"
+              >
+                Voltar para o Início
+              </button>
+            </div>
+          )}
         </div>
       </main>
+
+      {/* SIDEBAR MOBILE */}
+      <aside
+        className={`lg:hidden fixed top-0 left-0 h-full w-64 bg-white z-[60] shadow-2xl transform transition-transform duration-300 ${
+          menuAberto ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="p-6 border-b bg-[#059669] text-white flex justify-between items-center">
+          <span className="font-bold uppercase text-xs tracking-widest">
+            Menu Principal
+          </span>
+          <button onClick={() => setMenuAberto(false)}>
+            <X size={24} />
+          </button>
+        </div>
+        <nav className="p-4 flex flex-col gap-2">
+          <button
+            onClick={() => {
+              navigate("/dashboard");
+              setMenuAberto(false);
+            }}
+            className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 ${
+              isAtivo("/dashboard")
+                ? "bg-emerald-50 text-emerald-700"
+                : "text-gray-600"
+            }`}
+          >
+            <Activity size={18} /> Serviços
+          </button>
+          <button
+            onClick={() => setMenuAberto(false)}
+            className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 ${
+              isAtivo("/agendamento")
+                ? "bg-emerald-50 text-emerald-700"
+                : "text-gray-600"
+            }`}
+          >
+            <PlusCircle size={18} /> Agendar Horário
+          </button>
+          <button
+            onClick={() => {
+              navigate("/meus-dados");
+              setMenuAberto(false);
+            }}
+            className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 ${
+              isAtivo("/meus-dados")
+                ? "bg-emerald-50 text-emerald-700"
+                : "text-gray-600"
+            }`}
+          >
+            <ClipboardList size={18} /> Meus Dados
+          </button>
+        </nav>
+      </aside>
     </div>
   );
 };

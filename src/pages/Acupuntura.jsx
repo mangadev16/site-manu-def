@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Milestone, CheckCircle2, Calendar } from "lucide-react";
+import { ArrowLeft, PenLine, CheckCircle2, Calendar } from "lucide-react";
 
 const Acupuntura = () => {
   const navigate = useNavigate();
@@ -52,7 +52,7 @@ const Acupuntura = () => {
             <div className="flex-1 overflow-y-auto p-6 lg:p-12 space-y-6">
               <div className="flex flex-col items-center lg:items-start text-center lg:text-left">
                 <div className="bg-emerald-50 w-20 h-20 rounded-[25px] flex items-center justify-center mb-4">
-                  <Milestone className="text-emerald-600" size={40} />
+                  <PenLine className="text-emerald-600" size={40} />
                 </div>
                 <h2 className="text-2xl lg:text-4xl font-bold text-gray-800 leading-tight">Medicina Chinesa</h2>
               </div>
