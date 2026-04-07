@@ -165,24 +165,6 @@ const Login = () => {
           </div>
         )}
       </div>
-
-      {/* --- BOTÃO DO DESENVOLVEDOR NO CANTO INFERIOR ESQUERDO --- */}
-      <div className="absolute bottom-6 left-6 flex items-center gap-3">
-        <button
-          onClick={() => setExibirDev(!exibirDev)}
-          className="bg-white/20 hover:bg-white/40 text-white p-2 rounded-lg backdrop-blur-sm transition-all border border-white/30 shadow-lg font-mono font-bold"
-          title="Desenvolvedor"
-        >
-          {"</>"}
-        </button>
-        
-        {exibirDev && (
-          <div className="bg-white py-2 px-4 rounded-xl shadow-xl border border-emerald-100 animate-in slide-in-from-left-2 duration-300">
-            <p className="text-[10px] text-gray-400 uppercase font-bold tracking-tighter leading-none">Contato do Desenvolvedor:</p>
-            <p className="text-[#059669] text-sm font-bold">amiltondantasdev@gmail.com</p>
-          </div>
-        )}
-      </div>
     </div>
   );
 };

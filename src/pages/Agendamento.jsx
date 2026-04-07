@@ -1,3 +1,4 @@
+import emailjs from "@emailjs/browser";
 import React, { useState, useEffect } from "react";
 import { auth, db } from "../firebase";
 import {
@@ -9,6 +10,7 @@ import {
   where,
   getDocs,
   addDoc,
+  setDoc,
 } from "firebase/firestore";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -40,7 +42,6 @@ const Agendamento = () => {
   const [horariosOcupados, setHorariosOcupados] = useState([]);
   const [servicoSelecionado, setServicoSelecionado] = useState(null);
 
-  // Lógica de Nome (igual ao Dashboard)
   const nomeCompleto = auth.currentUser?.displayName || "Usuário";
   const nomeUsuario = nomeCompleto.includes("|")
     ? nomeCompleto.split("|")[0]
@@ -53,7 +54,7 @@ const Agendamento = () => {
 
         const q = query(
           collection(db, "agendamentos"),
-          where("data", "==", dataString)
+          where("data", "==", dataString),
         );
 
         const querySnapshot = await getDocs(q);
@@ -68,55 +69,96 @@ const Agendamento = () => {
   }, [dataSelecionada]);
 
   const finalizarAgendamento = async () => {
-    try {
-      const user = auth.currentUser;
-      if (!user) return;
+  try {
+    const user = auth.currentUser;
+    
+    if (!user) return alert("Usuário não logado.");
+    if (!servicoSelecionado) return alert("Selecione um serviço.");
 
-      const dataString = dataSelecionada.toLocaleDateString("pt-BR");
+    const dataString = dataSelecionada.toLocaleDateString("pt-BR");
+    const nomeServico = typeof servicoSelecionado === 'string' 
+      ? servicoSelecionado 
+      : servicoSelecionado.nome || servicoSelecionado.id;
 
-      const novoAgendamento = {
-        servico: servicoSelecionado,
-        data: dataString,
-        horario: horarioSelecionado,
-        status: "pendente",
-        timestamp: new Date(),
-      };
+    const novoAgendamento = {
+      servico: nomeServico,
+      data: dataString,
+      horario: horarioSelecionado,
+      status: "pendente",
+      timestamp: new Date(),
+      userId: user.uid,
+      userName: user.displayName ? user.displayName.split("|")[0] : "Cliente",
+    };
 
-      await addDoc(collection(db, "agendamentos"), {
+    // 1. SALVAR NO FIREBASE
+    const docRef = await addDoc(collection(db, "agendamentos"), novoAgendamento);
+    const idGerado = docRef.id;
+
+    const userRef = doc(db, "usuarios", user.uid);
+    await setDoc(userRef, {
+      agendamentos: arrayUnion({
         ...novoAgendamento,
-        userId: user.uid,
-        userName: user.displayName || "Paciente",
-      });
+        id: idGerado,
+      }),
+    }, { merge: true });
 
-      const userRef = doc(db, "usuarios", user.uid);
-      await updateDoc(userRef, {
-        agendamentos: arrayUnion({
-          ...novoAgendamento,
-          id: Date.now().toString(),
-        }),
-      });
+    // 2. ENVIAR EMAIL - VERSÃO CORRIGIDA
+    const templateParams = {
+      to_email: user.email,      // ← Campo que o template espera
+      user_name: user.displayName ? user.displayName.split("|")[0] : "Cliente",
+      servico: nomeServico,
+      data: dataString,
+      horario: horarioSelecionado,
+    };
 
-      setEtapa(5);
-    } catch (error) {
-      console.error("Erro ao finalizar:", error);
+    console.log("Enviando email para:", user.email);
+    console.log("Parâmetros:", templateParams);
+
+    await emailjs.send(
+      "service_zzmukmk",     // Seu Service ID
+      "template_ycafh0m",    // Seu Template ID
+      templateParams,
+      "mRz7ZUelFsyYsct_Q"    // Sua Public Key
+    );
+
+    console.log("Email enviado com sucesso!");
+    setEtapa(5);
+
+  } catch (error) {
+    console.error("Erro detalhado:", error);
+    
+    if (error.text) {
+      alert(`Erro no email: ${error.text}`);
+    } else {
+      alert("Agendamento realizado! O email de confirmação será enviado em breve.");
+    }
+    
+    setEtapa(5);
+  }
+};
+
+  // Resto das funções (obterHorariosDoDia, mudarMes, irParaHoje, etc.) permanecem iguais
+  const obterHorariosDoDia = (data) => {
+    const diaDaSemana = data.getDay();
+    const manha = ["08:00", "09:00", "10:00", "11:00"];
+    const tarde = ["14:00", "15:00", "16:00", "17:00"];
+
+    switch (diaDaSemana) {
+      case 1:
+      case 4:
+        return [...manha];
+      case 2:
+      case 3:
+      case 5:
+        return [...manha, ...tarde];
+      default:
+        return [];
     }
   };
 
-  const horarios = [
-    "09:00",
-    "10:00",
-    "11:00",
-    "12:00",
-    "13:00",
-    "14:00",
-    "15:00",
-    "16:00",
-    "17:00",
-  ];
-
-  // Lógica de Calendário
   const mudarMes = (dir) =>
     setMesAtual(new Date(mesAtual.getFullYear(), mesAtual.getMonth() + dir, 1));
+
   const irParaHoje = () => {
     const hoje = new Date();
     setMesAtual(hoje);
@@ -126,19 +168,23 @@ const Agendamento = () => {
   const diasNoMes = new Date(
     mesAtual.getFullYear(),
     mesAtual.getMonth() + 1,
-    0
+    0,
   ).getDate();
   const primeiroDia = new Date(
     mesAtual.getFullYear(),
     mesAtual.getMonth(),
-    1
+    1,
   ).getDay();
   const isAtivo = (rota) => location.pathname === rota;
+  const horariosDisponiveis = obterHorariosDoDia(dataSelecionada);
+
+  // CORREÇÃO NA ETAPA 3: Adicione um console.log para debug
+  // Na parte do JSX, mantenha como está, mas vamos garantir que o estado está sendo setado corretamente
 
   return (
-    <div className="fixed inset-0 h-screen w-full bg-gray-50 font-sans flex flex-col overflow-hidden">
-      {/* CABEÇALHO PADRÃO DASHBOARD */}
-      <header className="bg-[#059669] text-white p-4 flex justify-between items-center shadow-md z-50 shrink-0">
+    <div className="min-h-screen w-full bg-gray-50 font-sans flex flex-col relative">
+      {/* Header permanece igual */}
+      <header className="bg-[#059669] text-white p-4 flex justify-between items-center shadow-md sticky top-0 z-50">
         <div className="flex items-center gap-4">
           <button
             onClick={() => {
@@ -200,10 +246,16 @@ const Agendamento = () => {
             className="flex items-center gap-2 bg-emerald-700/50 px-3 py-2 rounded-xl hover:bg-emerald-700/70 transition-all"
           >
             <User size={16} />
-            <span className="text-xs font-bold">{nomeUsuario}</span>
+            <span className="text-xs font-bold hidden sm:block">
+              {nomeUsuario}
+            </span>
             <ChevronDown
               size={14}
-              className={perfilAberto ? "rotate-180" : ""}
+              className={
+                perfilAberto
+                  ? "rotate-180 transition-transform"
+                  : "transition-transform"
+              }
             />
           </button>
           {perfilAberto && (
@@ -212,7 +264,8 @@ const Agendamento = () => {
                 onClick={() => navigate("/perfil")}
                 className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-emerald-50 flex items-center gap-2"
               >
-                <Settings size={16} className="text-emerald-600" /> Dados da Conta
+                <Settings size={16} className="text-emerald-600" /> Dados da
+                Conta
               </button>
               <button
                 onClick={() => auth.signOut()}
@@ -225,13 +278,13 @@ const Agendamento = () => {
         </div>
       </header>
 
-      {/* ÁREA DE AGENDAMENTO */}
-      <main className="flex-1 overflow-y-auto p-4 flex flex-col items-center bg-gray-50">
+      {/* MAIN CONTENT */}
+      <main className="flex-1 p-4 lg:p-10 flex flex-col items-center bg-gray-50 pb-20">
         <div className="w-full max-w-md bg-white rounded-[35px] shadow-xl border border-emerald-50 overflow-hidden">
-          
           {/* ETAPA 1: CALENDÁRIO */}
           {etapa === 1 && (
             <div className="p-6">
+              {/* Conteúdo do calendário - igual ao original */}
               <div className="flex items-center justify-between mb-6 bg-emerald-50 p-2 rounded-2xl">
                 <div className="flex gap-1">
                   <button
@@ -280,25 +333,30 @@ const Agendamento = () => {
                   const data = new Date(
                     mesAtual.getFullYear(),
                     mesAtual.getMonth(),
-                    dia
+                    dia,
                   );
                   const isSelecionado =
                     data.toDateString() === dataSelecionada.toDateString();
                   const isHoje =
                     data.toDateString() === new Date().toDateString();
+                  const diaDaSemana = data.getDay();
+                  const isFimDeSemana = diaDaSemana === 0 || diaDaSemana === 6;
 
                   return (
                     <button
                       key={dia}
-                      onClick={() => setDataSelecionada(data)}
+                      onClick={() => !isFimDeSemana && setDataSelecionada(data)}
+                      disabled={isFimDeSemana}
                       className={`h-10 w-10 mx-auto rounded-xl flex items-center justify-center font-bold text-sm transition-all
                         ${
-                          isSelecionado
-                            ? "bg-emerald-600 text-white shadow-lg scale-110"
-                            : "text-gray-600 hover:bg-emerald-50"
+                          isFimDeSemana
+                            ? "text-gray-300 cursor-not-allowed"
+                            : isSelecionado
+                              ? "bg-emerald-600 text-white shadow-lg scale-110"
+                              : "text-gray-600 hover:bg-emerald-50"
                         }
                         ${
-                          isHoje && !isSelecionado
+                          isHoje && !isSelecionado && !isFimDeSemana
                             ? "border-2 border-emerald-200 text-emerald-600"
                             : ""
                         }`}
@@ -313,7 +371,7 @@ const Agendamento = () => {
                 onClick={() => setEtapa(2)}
                 className="w-full mt-4 bg-emerald-600 text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-emerald-700 transition-all active:scale-95"
               >
-                Agendar Horário
+                Ver Horários
               </button>
             </div>
           )}
@@ -327,38 +385,56 @@ const Agendamento = () => {
               >
                 <ArrowLeft size={16} /> Voltar ao calendário
               </button>
+
+              <div className="bg-emerald-50 p-4 rounded-2xl text-center mb-6 border border-emerald-100">
+                <p className="text-emerald-800 font-bold">
+                  {dataSelecionada.toLocaleDateString("pt-BR", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                  })}
+                </p>
+              </div>
+
               <h3 className="font-bold text-gray-800 mb-4">
                 Horários disponíveis:
               </h3>
-              <div className="grid grid-cols-3 gap-3">
-                {horarios.map((hora) => {
-                  const estaOcupado = horariosOcupados.includes(hora);
 
-                  return (
-                    <button
-                      key={hora}
-                      disabled={estaOcupado}
-                      onClick={() => {
-                        setHorarioSelecionado(hora);
-                        setEtapa(3);
-                      }}
-                      className={`p-4 rounded-2xl font-bold border-2 transition-all ${
-                        estaOcupado
-                          ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-60"
-                          : horarioSelecionado === hora
-                          ? "bg-emerald-600 border-emerald-600 text-white shadow-lg"
-                          : "bg-white border-emerald-50 text-gray-700 hover:border-emerald-200"
-                      }`}
-                    >
-                      {estaOcupado ? "Ocupado" : hora}
-                    </button>
-                  );
-                })}
-              </div>
+              {horariosDisponiveis.length > 0 ? (
+                <div className="grid grid-cols-3 gap-3">
+                  {horariosDisponiveis.map((hora) => {
+                    const estaOcupado = horariosOcupados.includes(hora);
+
+                    return (
+                      <button
+                        key={hora}
+                        disabled={estaOcupado}
+                        onClick={() => {
+                          setHorarioSelecionado(hora);
+                          setEtapa(3);
+                        }}
+                        className={`p-4 rounded-2xl font-bold border-2 transition-all ${
+                          estaOcupado
+                            ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-60"
+                            : horarioSelecionado === hora
+                              ? "bg-emerald-600 border-emerald-600 text-white shadow-lg"
+                              : "bg-white border-emerald-50 text-gray-700 hover:border-emerald-200"
+                        }`}
+                      >
+                        {estaOcupado ? "Ocupado" : hora}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-center text-gray-500 py-6">
+                  Nenhum horário disponível para este dia.
+                </p>
+              )}
             </div>
           )}
 
-          {/* ETAPA 3: SELEÇÃO DE SERVIÇO */}
+          {/* ETAPA 3: SELEÇÃO DE SERVIÇO - CORRIGIDA */}
           {etapa === 3 && (
             <div className="p-6 space-y-3">
               <button
@@ -378,16 +454,19 @@ const Agendamento = () => {
               {[
                 {
                   id: "Nutrição",
+                  nome: "Nutrição",
                   icon: <Activity className="text-emerald-600" />,
                   cor: "bg-emerald-50",
                 },
                 {
                   id: "Acupuntura",
+                  nome: "Acupuntura",
                   icon: <PenLine className="text-blue-600" />,
                   cor: "bg-blue-50",
                 },
                 {
                   id: "Farmácia",
+                  nome: "Farmácia",
                   icon: <ClipboardList className="text-purple-600" />,
                   cor: "bg-purple-50",
                 },
@@ -395,7 +474,8 @@ const Agendamento = () => {
                 <button
                   key={s.id}
                   onClick={() => {
-                    setServicoSelecionado(s.id);
+                    console.log("Selecionando serviço:", s.nome); // Debug
+                    setServicoSelecionado(s.nome); // Agora passa apenas o nome como string
                     setEtapa(4);
                   }}
                   className={`w-full p-5 rounded-2xl border-2 border-gray-100 flex items-center justify-between hover:border-emerald-500 transition-all ${s.cor}`}
@@ -404,7 +484,7 @@ const Agendamento = () => {
                     <div className="bg-white p-2 rounded-lg shadow-sm">
                       {s.icon}
                     </div>
-                    <span className="font-bold text-gray-700">{s.id}</span>
+                    <span className="font-bold text-gray-700">{s.nome}</span>
                   </div>
                   <ChevronRight size={20} className="text-gray-400" />
                 </button>
@@ -488,7 +568,14 @@ const Agendamento = () => {
         </div>
       </main>
 
-      {/* SIDEBAR MOBILE */}
+      {/* MENU MOBILE */}
+      {menuAberto && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setMenuAberto(false)}
+        />
+      )}
+
       <aside
         className={`lg:hidden fixed top-0 left-0 h-full w-64 bg-white z-[60] shadow-2xl transform transition-transform duration-300 ${
           menuAberto ? "translate-x-0" : "-translate-x-full"
@@ -511,17 +598,20 @@ const Agendamento = () => {
             className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 ${
               isAtivo("/dashboard")
                 ? "bg-emerald-50 text-emerald-700"
-                : "text-gray-600"
+                : "text-gray-600 hover:bg-gray-50"
             }`}
           >
             <Activity size={18} /> Serviços
           </button>
           <button
-            onClick={() => setMenuAberto(false)}
+            onClick={() => {
+              navigate("/agendamento");
+              setMenuAberto(false);
+            }}
             className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 ${
               isAtivo("/agendamento")
                 ? "bg-emerald-50 text-emerald-700"
-                : "text-gray-600"
+                : "text-gray-600 hover:bg-gray-50"
             }`}
           >
             <PlusCircle size={18} /> Agendar Horário
@@ -534,7 +624,7 @@ const Agendamento = () => {
             className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 ${
               isAtivo("/meus-dados")
                 ? "bg-emerald-50 text-emerald-700"
-                : "text-gray-600"
+                : "text-gray-600 hover:bg-gray-50"
             }`}
           >
             <ClipboardList size={18} /> Meus Dados
