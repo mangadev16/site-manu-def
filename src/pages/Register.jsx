@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { auth } from "../firebase";
+import { auth, db } from "../firebase";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore"; // Importe o Firestore
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -26,20 +27,33 @@ const Register = () => {
     e.preventDefault();
     setErro("");
     try {
+      // 1. Criar usuário no Authentication
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
         senha,
       );
+      const user = userCredential.user;
 
-      // IMPORTANTE: Salvamos NOME + WHATSAPP usando o separador "|"
-      await updateProfile(userCredential.user, {
+      // 2. Atualizar o perfil com nome e WhatsApp
+      await updateProfile(user, {
         displayName: `${nome}|${whatsapp}`,
       });
 
+      // 3. IMPORTANTE: Salvar os dados do usuário no Firestore
+      await setDoc(doc(db, "usuarios", user.uid), {
+        nome: nome,
+        email: email,
+        telefone: whatsapp,
+        historico: [],
+        agendamentos: [],
+        criadoEm: new Date()
+      });
+
+      console.log("Usuário cadastrado com sucesso:", user.uid);
       navigate("/dashboard");
     } catch (err) {
-      // Exibe o erro real do Firebase para ajudar no diagnóstico
+      console.error("Erro no cadastro:", err);
       setErro(err.message);
     }
   };
@@ -49,7 +63,7 @@ const Register = () => {
       <div className="bg-white p-6 md:p-8 rounded-[35px] shadow-2xl w-full max-w-md border border-emerald-50 flex flex-col justify-center">
         <div className="text-center mb-4">
           <div className="inline-block px-6 py-2 bg-[#059669] rounded-full text-white font-bold text-lg mb-3 shadow-md">
-            Manuel Bernardo
+            Manuela Bernardo
           </div>
           <h2 className="text-xl font-extrabold text-[#1f2937] leading-tight uppercase">
             Nutrição, Acupuntura e Farmácia

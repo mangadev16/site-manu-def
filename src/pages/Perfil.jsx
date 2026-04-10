@@ -1,8 +1,21 @@
 import React, { useState } from "react";
-import { auth } from "../firebase";
+import { doc, updateDoc } from "firebase/firestore";
+import { auth, db } from "../firebase";
 import { updatePassword, updateProfile, deleteUser } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, User, Mail, Lock, Eye, EyeOff, Camera, Calendar, Save, Phone, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  User,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  Camera,
+  Calendar,
+  Save,
+  Phone,
+  Trash2,
+} from "lucide-react";
 
 const Perfil = () => {
   const user = auth.currentUser;
@@ -10,7 +23,7 @@ const Perfil = () => {
 
   // Separação lógica: Nome fica no índice [0], WhatsApp no [1]
   const partesDono = user?.displayName ? user.displayName.split("|") : ["", ""];
-  
+
   const [nome, setNome] = useState(partesDono[0] || "");
   const [whatsapp, setWhatsapp] = useState(partesDono[1] || "");
   const [novaSenha, setNovaSenha] = useState("");
@@ -19,8 +32,8 @@ const Perfil = () => {
   const [mensagem, setMensagem] = useState({ tipo: "", texto: "" });
 
   const formatarWhatsApp = (valor) => {
-    let v = valor.replace(/\D/g, ""); 
-    if (v.length > 11) v = v.slice(0, 11); 
+    let v = valor.replace(/\D/g, "");
+    if (v.length > 11) v = v.slice(0, 11);
     if (v.length > 2) v = `(${v.slice(0, 2)}) ${v.slice(2)}`;
     if (v.length > 10) v = `${v.slice(0, 10)}-${v.slice(10)}`;
     return v;
@@ -30,22 +43,33 @@ const Perfil = () => {
     e.preventDefault();
     setMensagem({ tipo: "", texto: "" });
     try {
-      // Salva novamente com o separador para manter o padrão
-      await updateProfile(user, { 
+      // Atualizar no Authentication
+      await updateProfile(user, {
         displayName: `${nome}|${whatsapp}`,
-        photoURL: fotoUrl 
+        photoURL: fotoUrl,
+      });
+
+      // Atualizar no Firestore
+      const userRef = doc(db, "usuarios", user.uid);
+      await updateDoc(userRef, {
+        nome: nome,
+        telefone: whatsapp,
+        email: user.email,
       });
 
       if (novaSenha) {
-        if (novaSenha.length < 6) throw new Error("A nova senha deve ter pelo menos 6 caracteres.");
+        if (novaSenha.length < 6)
+          throw new Error("A nova senha deve ter pelo menos 6 caracteres.");
         await updatePassword(user, novaSenha);
         setNovaSenha("");
       }
       setMensagem({ tipo: "sucesso", texto: "Dados atualizados com sucesso!" });
     } catch (error) {
-      setMensagem({ 
-        tipo: "erro", 
-        texto: error.message.includes("recent-login") ? "Faça login novamente para alterar a senha." : "Erro ao atualizar." 
+      setMensagem({
+        tipo: "erro",
+        texto: error.message.includes("recent-login")
+          ? "Faça login novamente para alterar a senha."
+          : "Erro ao atualizar.",
       });
     }
   };
@@ -56,7 +80,10 @@ const Perfil = () => {
         await deleteUser(user);
         navigate("/login");
       } catch (error) {
-        setMensagem({ tipo: "erro", texto: "Erro ao excluir. Tente fazer login novamente." });
+        setMensagem({
+          tipo: "erro",
+          texto: "Erro ao excluir. Tente fazer login novamente.",
+        });
       }
     }
   };

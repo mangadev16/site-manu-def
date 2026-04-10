@@ -59,20 +59,23 @@ const Adm = () => {
 
   // Efeito para carregar agendamentos
   useEffect(() => {
-    const dataString = formatarData(dataFiltro);
-    const q = query(
-      collection(db, "agendamentos"),
-      where("data", "==", dataString),
-    );
-    const unsub = onSnapshot(q, (querySnapshot) => {
-      const agendamentos = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setAgendamentosTodos(agendamentos);
-    });
-    return () => unsub();
-  }, [dataFiltro]);
+  const dataString = formatarData(dataFiltro);
+  console.log("Buscando agendamentos para data:", dataString); // DEBUG
+  
+  const q = query(
+    collection(db, "agendamentos"),
+    where("data", "==", dataString),
+  );
+  const unsub = onSnapshot(q, (querySnapshot) => {
+    const agendamentos = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    console.log("Agendamentos encontrados:", agendamentos); // DEBUG
+    setAgendamentosTodos(agendamentos);
+  });
+  return () => unsub();
+}, [dataFiltro]);;
 
   // Efeito para carregar os Clientes
   useEffect(() => {
@@ -107,20 +110,31 @@ const Adm = () => {
 
   const removerFiltro = (servico) => setFiltrosAtivos(filtrosAtivos.filter(f => f !== servico));
 
-  const clientesFiltrados = clientesTodos
-    .filter(c => {
-      const bateTexto = c.nome?.toLowerCase().includes(buscaCliente.toLowerCase()) || c.telefone?.includes(buscaCliente) || c.email?.toLowerCase().includes(buscaCliente.toLowerCase());
-      if (!bateTexto) return false;
-      if (filtrosAtivos.length === 0) return true;
-      return filtrosAtivos.some(f => 
-        agendamentosTodos.some(ag => ag.userId === c.id && ag.servico === f) || 
-        (c.historico && c.historico.some(h => h.servico === f))
-      );
-    })
-    .sort((a, b) => {
-      if (ordemClientes === "alfabetica") return (a.nome || "").localeCompare(b.nome || "");
-      return b.totalGeral - a.totalGeral;
-    });
+  // Substitua a função clientesFiltrados por esta versão:
+
+const clientesFiltrados = clientesTodos
+  .filter(c => {
+    // Busca por nome, email ou telefone
+    const bateTexto = buscaCliente === "" || 
+      c.nome?.toLowerCase().includes(buscaCliente.toLowerCase()) || 
+      c.telefone?.includes(buscaCliente) || 
+      c.email?.toLowerCase().includes(buscaCliente.toLowerCase());
+    
+    if (!bateTexto) return false;
+    
+    // Se não há filtros ativos, mostra todos os clientes
+    if (filtrosAtivos.length === 0) return true;
+    
+    // Se há filtros, mostra apenas clientes que já usaram esses serviços
+    return filtrosAtivos.some(f => 
+      agendamentosTodos.some(ag => ag.userId === c.id && ag.servico === f) || 
+      (c.historico && c.historico.some(h => h.servico === f))
+    );
+  })
+  .sort((a, b) => {
+    if (ordemClientes === "alfabetica") return (a.nome || "").localeCompare(b.nome || "");
+    return (b.totalGeral || 0) - (a.totalGeral || 0);
+  });
 
   const atualizarStatus = async (ag, novoStatus) => {
     try {
