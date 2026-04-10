@@ -68,7 +68,9 @@ const Agendamento = () => {
     buscarHorariosOcupados();
   }, [dataSelecionada]);
 
-  const finalizarAgendamento = async () => {
+  // Substitua a função finalizarAgendamento por esta versão com verificação:
+
+const finalizarAgendamento = async () => {
   try {
     const user = auth.currentUser;
     
@@ -79,6 +81,19 @@ const Agendamento = () => {
     const nomeServico = typeof servicoSelecionado === 'string' 
       ? servicoSelecionado 
       : servicoSelecionado.nome || servicoSelecionado.id;
+
+    // VERIFICAR SE HORÁRIO JÁ ESTÁ OCUPADO (IMPORTANTE!)
+    const q = query(
+      collection(db, "agendamentos"),
+      where("data", "==", dataString),
+      where("horario", "==", horarioSelecionado)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+      alert("Este horário já está ocupado! Por favor, escolha outro horário.");
+      return; // Impede o agendamento duplicado
+    }
 
     const novoAgendamento = {
       servico: nomeServico,
@@ -102,37 +117,14 @@ const Agendamento = () => {
       }),
     }, { merge: true });
 
-    // 2. ENVIAR EMAIL - VERSÃO CORRIGIDA
-    const templateParams = {
-      to_email: user.email,      // ← Campo que o template espera
-      user_name: user.displayName ? user.displayName.split("|")[0] : "Cliente",
-      servico: nomeServico,
-      data: dataString,
-      horario: horarioSelecionado,
-    };
-
-    console.log("Enviando email para:", user.email);
-    console.log("Parâmetros:", templateParams);
-
-    await emailjs.send(
-      "service_zzmukmk",     // Seu Service ID
-      "template_ycafh0m",    // Seu Template ID
-      templateParams,
-      "mRz7ZUelFsyYsct_Q"    // Sua Public Key
-    );
-
-    console.log("Email enviado com sucesso!");
+    // 2. SEM ENVIO DE EMAIL - APENAS MOSTRA O EMAIL DO CLIENTE
+    console.log("Agendamento realizado para:", user.email);
+    
     setEtapa(5);
 
   } catch (error) {
     console.error("Erro detalhado:", error);
-    
-    if (error.text) {
-      alert(`Erro no email: ${error.text}`);
-    } else {
-      alert("Agendamento realizado! O email de confirmação será enviado em breve.");
-    }
-    
+    alert("Erro ao finalizar: " + error.message);
     setEtapa(5);
   }
 };

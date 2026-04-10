@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { db, auth } from "../firebase";
-import { collection, onSnapshot, doc, updateDoc, arrayUnion, query, where } from "firebase/firestore";
+import { collection, onSnapshot, doc, updateDoc, arrayUnion } from "firebase/firestore";
 import { 
   User, LogOut, Calendar as CalendarIcon, Clock, X, Apple, Thermometer, Milestone,
   ChevronLeft, ChevronRight, RotateCcw, MessageCircle, ChevronRight as ChevronIcon,
@@ -18,11 +18,10 @@ const formatarData = (data) => {
 const Adm = () => {
   const navigate = useNavigate();
 
-  // Estados
   const [telaAtiva, setTelaAtiva] = useState("agenda"); 
   const [menuAberto, setMenuAberto] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState("Nutrição");
-  const [agendamentosTodos, setAgendamentosTodos] = useState([]);
+  const [todosAgendamentos, setTodosAgendamentos] = useState([]);
   const [clientesTodos, setClientesTodos] = useState([]);
   const [dataFiltro, setDataFiltro] = useState(new Date()); 
   const [buscaCliente, setBuscaCliente] = useState("");
@@ -31,6 +30,9 @@ const Adm = () => {
   const [filtroMenuAberto, setFiltroMenuAberto] = useState(false);
   const [agendamentoSelecionado, setAgendamentoSelecionado] = useState(null);
   const [clienteFicha, setClienteFicha] = useState(null);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState(null);
+  const [modalRelatorioAberto, setModalRelatorioAberto] = useState(null);
   
   const inputAgendaRef = useRef(null);
   const inputRelatoriosRef = useRef(null);
@@ -41,13 +43,18 @@ const Adm = () => {
     "Farmácia": { icon: <Thermometer size={16} />, color: "text-rose-500" }
   };
 
-  // Função para buscar dados do cliente pelo ID
+  const ordemStatus = {
+    "pendente": 0,
+    "concluido": 1,
+    "faltou": 1,
+    "cancelado": 1
+  };
+
   const buscarDadosCliente = (userId) => {
     const cliente = clientesTodos.find(c => c.id === userId);
     return cliente || { nome: "Carregando...", email: "", telefone: "" };
   };
 
-  // Lógica de Saída
   const lidarSair = async () => {
     try {
       await auth.signOut();
@@ -57,42 +64,102 @@ const Adm = () => {
     }
   };
 
-  // Efeito para carregar agendamentos
-  useEffect(() => {
-  const dataString = formatarData(dataFiltro);
-  console.log("Buscando agendamentos para data:", dataString); // DEBUG
-  
-  const q = query(
-    collection(db, "agendamentos"),
-    where("data", "==", dataString),
-  );
-  const unsub = onSnapshot(q, (querySnapshot) => {
-    const agendamentos = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-    console.log("Agendamentos encontrados:", agendamentos); // DEBUG
-    setAgendamentosTodos(agendamentos);
-  });
-  return () => unsub();
-}, [dataFiltro]);;
+  const podeAlterarStatus = (statusAtual) => {
+    return statusAtual === "pendente";
+  };
 
-  // Efeito para carregar os Clientes
   useEffect(() => {
-    const unsubClientes = onSnapshot(collection(db, "usuarios"), (snap) => {
-      const lista = snap.docs.map(doc => ({ 
-        id: doc.id, 
-        ...doc.data(),
-        totalGeral: doc.data().historico?.length || 0 
-      }));
-      setClientesTodos(lista);
-    });
-    return () => unsubClientes();
+    console.log("Iniciando carregamento de agendamentos...");
+    setCarregando(true);
+    
+    const unsubscribe = onSnapshot(
+      collection(db, "agendamentos"),
+      (snapshot) => {
+        const agendamentos = snapshot.docs.map(doc => {
+          const dados = doc.data();
+          return {
+            id: doc.id,
+            ...dados,
+            servico: dados.servico || dados.servicio || dados.serviço || "Não identificado",
+            status: dados.status || "pendente"
+          };
+        });
+        
+        const agendamentosOrdenados = [...agendamentos].sort((a, b) => {
+          if (ordemStatus[a.status] !== ordemStatus[b.status]) {
+            return ordemStatus[a.status] - ordemStatus[b.status];
+          }
+          return (a.horario || "00:00").localeCompare(b.horario || "00:00");
+        });
+        
+        console.log("Agendamentos carregados:", agendamentosOrdenados.length);
+        setTodosAgendamentos(agendamentosOrdenados);
+        setCarregando(false);
+        setErro(null);
+      },
+      (error) => {
+        console.error("Erro ao carregar agendamentos:", error);
+        setErro(error.message);
+        setCarregando(false);
+      }
+    );
+    
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    console.log("Carregando clientes...");
+    
+    const unsubscribe = onSnapshot(
+      collection(db, "usuarios"),
+      (snapshot) => {
+        const clientes = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          totalGeral: doc.data().historico?.length || 0
+        }));
+        setClientesTodos(clientes);
+      },
+      (error) => {
+        console.error("Erro ao carregar clientes:", error);
+      }
+    );
+    
+    return () => unsubscribe();
   }, []);
 
   const dataFormatada = dataFiltro.toLocaleDateString('pt-BR');
   const hojeFormatado = new Date().toLocaleDateString('pt-BR');
   
+  const agendamentosDoDia = todosAgendamentos
+    .filter(ag => ag.data === dataFormatada)
+    .sort((a, b) => {
+      if (a.status === "pendente" && b.status !== "pendente") return -1;
+      if (a.status !== "pendente" && b.status === "pendente") return 1;
+      return (a.horario || "00:00").localeCompare(b.horario || "00:00");
+    });
+  
+  const historicoDoDia = clientesTodos.flatMap(c => c.historico || []).filter(h => h.dataConclusao === dataFormatada);
+  
+  const relatorios = [
+    { label: "Concluídos", status: "concluido", icon: <CheckCircle2 />, bg: "bg-[#1e293b]", text: "text-white", count: historicoDoDia.filter(h => h.status === "concluido").length },
+    { label: "Faltas", status: "faltou", icon: <AlertCircle />, bg: "bg-white", text: "text-slate-800", count: historicoDoDia.filter(h => h.status === "faltou").length },
+    { label: "Cancelados", status: "cancelado", icon: <Trash2 />, bg: "bg-white", text: "text-slate-800", count: historicoDoDia.filter(h => h.status === "cancelado").length },
+  ];
+
+  const abrirModalRelatorio = (status) => {
+    const clientesComStatus = historicoDoDia.filter(h => h.status === status).map(h => {
+      const cliente = clientesTodos.find(c => c.id === h.userId);
+      return {
+        ...h,
+        clienteNome: cliente?.nome || "Cliente não encontrado",
+        clienteTelefone: cliente?.telefone || "Não informado",
+        clienteEmail: cliente?.email || "Não informado"
+      };
+    });
+    setModalRelatorioAberto({ status, clientes: clientesComStatus });
+  };
+
   const mudarDia = (dias) => {
     const novaData = new Date(dataFiltro);
     novaData.setDate(novaData.getDate() + dias);
@@ -100,43 +167,51 @@ const Adm = () => {
   };
 
   const abrirCalendario = (ref) => {
-    if (ref.current && typeof ref.current.showPicker === 'function') ref.current.showPicker();
+    if (ref.current && typeof ref.current.showPicker === 'function') {
+      ref.current.showPicker();
+    }
   };
 
   const adicionarFiltro = (servico) => {
-    if (!filtrosAtivos.includes(servico)) setFiltrosAtivos([...filtrosAtivos, servico]);
+    if (!filtrosAtivos.includes(servico)) {
+      setFiltrosAtivos([...filtrosAtivos, servico]);
+    }
     setFiltroMenuAberto(false);
   };
 
-  const removerFiltro = (servico) => setFiltrosAtivos(filtrosAtivos.filter(f => f !== servico));
+  const removerFiltro = (servico) => {
+    setFiltrosAtivos(filtrosAtivos.filter(f => f !== servico));
+  };
 
-  // Substitua a função clientesFiltrados por esta versão:
-
-const clientesFiltrados = clientesTodos
-  .filter(c => {
-    // Busca por nome, email ou telefone
-    const bateTexto = buscaCliente === "" || 
-      c.nome?.toLowerCase().includes(buscaCliente.toLowerCase()) || 
-      c.telefone?.includes(buscaCliente) || 
-      c.email?.toLowerCase().includes(buscaCliente.toLowerCase());
-    
-    if (!bateTexto) return false;
-    
-    // Se não há filtros ativos, mostra todos os clientes
-    if (filtrosAtivos.length === 0) return true;
-    
-    // Se há filtros, mostra apenas clientes que já usaram esses serviços
-    return filtrosAtivos.some(f => 
-      agendamentosTodos.some(ag => ag.userId === c.id && ag.servico === f) || 
-      (c.historico && c.historico.some(h => h.servico === f))
-    );
-  })
-  .sort((a, b) => {
-    if (ordemClientes === "alfabetica") return (a.nome || "").localeCompare(b.nome || "");
-    return (b.totalGeral || 0) - (a.totalGeral || 0);
-  });
+  const clientesFiltrados = clientesTodos
+    .filter(c => {
+      const bateTexto = buscaCliente === "" || 
+        c.nome?.toLowerCase().includes(buscaCliente.toLowerCase()) || 
+        c.telefone?.includes(buscaCliente) || 
+        c.email?.toLowerCase().includes(buscaCliente.toLowerCase());
+      
+      if (!bateTexto) return false;
+      if (filtrosAtivos.length === 0) return true;
+      
+      return filtrosAtivos.some(f => 
+        todosAgendamentos.some(ag => ag.userId === c.id && ag.servico === f) || 
+        (c.historico && c.historico.some(h => h.servico === f))
+      );
+    })
+    .sort((a, b) => {
+      if (ordemClientes === "alfabetica") {
+        return (a.nome || "").localeCompare(b.nome || "");
+      }
+      return (b.totalGeral || 0) - (a.totalGeral || 0);
+    });
 
   const atualizarStatus = async (ag, novoStatus) => {
+    if (!podeAlterarStatus(ag.status)) {
+      alert(`Este agendamento já foi ${ag.status === "concluido" ? "concluído" : ag.status === "faltou" ? "marcado como falta" : "cancelado"} e não pode mais ser alterado.`);
+      setAgendamentoSelecionado(null);
+      return;
+    }
+    
     try {
       const agRef = doc(db, "agendamentos", ag.id);
       const clienteRef = doc(db, "usuarios", ag.userId);
@@ -148,7 +223,8 @@ const clientesFiltrados = clientesTodos
         data: ag.data,
         horario: ag.horario,
         status: novoStatus, 
-        dataConclusao: formatarData(new Date()) 
+        dataConclusao: formatarData(new Date()),
+        userId: ag.userId
       };
       
       await updateDoc(clienteRef, {
@@ -156,19 +232,18 @@ const clientesFiltrados = clientesTodos
       });
       
       setAgendamentoSelecionado(null);
-      alert("Status atualizado com sucesso!");
+      alert(`Agendamento ${novoStatus === "concluido" ? "concluído" : novoStatus === "faltou" ? "marcado como falta" : "cancelado"} com sucesso!`);
     } catch (e) {
       console.error("Erro crítico:", e);
       alert("Erro ao salvar. Verifique o console.");
     }
   };
 
-  // Componente Seletor de Data
   const SeletorData = ({ inputRef }) => (
     <div className="flex items-center gap-3">
       <div className="flex items-center gap-4 bg-white p-2 rounded-2xl shadow-sm border">
         <button onClick={() => mudarDia(-1)} className="p-2 text-slate-400 hover:text-emerald-600">
-          <ChevronLeft/>
+          <ChevronLeft size={18}/>
         </button>
         <div onClick={() => abrirCalendario(inputRef)} className="flex items-center gap-3 px-4 py-1 cursor-pointer group">
           <CalendarIcon size={18} className="text-emerald-500 group-hover:scale-110 transition-transform"/>
@@ -177,11 +252,16 @@ const clientesFiltrados = clientesTodos
             ref={inputRef} 
             type="date" 
             className="absolute w-0 h-0 opacity-0" 
-            onChange={(e) => e.target.value && setDataFiltro(new Date(e.target.value.replace(/-/g, '\/')))}
+            onChange={(e) => {
+              if (e.target.value) {
+                const [ano, mes, dia] = e.target.value.split('-');
+                setDataFiltro(new Date(ano, mes - 1, dia));
+              }
+            }}
           />
         </div>
         <button onClick={() => mudarDia(1)} className="p-2 text-slate-400 hover:text-emerald-600">
-          <ChevronRight/>
+          <ChevronRight size={18}/>
         </button>
       </div>
       
@@ -197,216 +277,252 @@ const clientesFiltrados = clientesTodos
     </div>
   );
 
+  if (erro) {
+    return (
+      <div className="fixed inset-0 bg-[#f8fafc] flex items-center justify-center">
+        <div className="text-center p-8 bg-red-50 rounded-2xl max-w-md">
+          <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-red-700 mb-2">Erro de Conexão</h2>
+          <p className="text-red-600 mb-4">{erro}</p>
+          <button onClick={() => window.location.reload()} className="px-6 py-2 bg-red-600 text-white rounded-xl">Tentar Novamente</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (carregando) {
+    return (
+      <div className="fixed inset-0 bg-[#f8fafc] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+          <p className="text-slate-500">Carregando dados...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 h-screen w-full bg-[#f8fafc] flex flex-col lg:flex-row overflow-hidden text-slate-900 font-sans">
       {/* SIDEBAR */}
-      <aside className={`fixed lg:static inset-y-0 left-0 w-72 bg-[#1e293b] text-white z-[100] transform transition-transform duration-300 ${menuAberto ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+      <aside className={`fixed lg:static inset-y-0 left-0 w-72 bg-[#1e293b] text-white z-[100] transform transition-transform duration-300 ${menuAberto ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
         <div className="p-8 border-b border-white/10 flex items-center gap-3">
-          <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse"/>
+          <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse" />
           <h1 className="font-black text-xs uppercase tracking-widest text-emerald-400">Painel Administrativo</h1>
         </div>
         <nav className="p-6 space-y-3">
-          <button onClick={() => {setTelaAtiva("agenda"); setMenuAberto(false)}} className={`w-full flex items-center gap-4 p-4 rounded-2xl font-black text-[10px] transition-all ${telaAtiva === 'agenda' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white/5'}`}>
-            <LayoutDashboard size={20}/> AGENDA
+          <button onClick={() => { setTelaAtiva("agenda"); setMenuAberto(false); }} className={`w-full flex items-center gap-4 p-4 rounded-2xl font-black text-[10px] transition-all ${telaAtiva === "agenda" ? "bg-emerald-600 text-white shadow-lg" : "text-slate-400 hover:bg-white/5"}`}>
+            <LayoutDashboard size={20} /> AGENDA
           </button>
-          <button onClick={() => {setTelaAtiva("clientes"); setMenuAberto(false)}} className={`w-full flex items-center gap-4 p-4 rounded-2xl font-black text-[10px] transition-all ${telaAtiva === 'clientes' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white/5'}`}>
-            <Users size={20}/> CLIENTES
+          <button onClick={() => { setTelaAtiva("clientes"); setMenuAberto(false); }} className={`w-full flex items-center gap-4 p-4 rounded-2xl font-black text-[10px] transition-all ${telaAtiva === "clientes" ? "bg-emerald-600 text-white shadow-lg" : "text-slate-400 hover:bg-white/5"}`}>
+            <Users size={20} /> CLIENTES
           </button>
-          <button onClick={() => {setTelaAtiva("relatorios"); setMenuAberto(false)}} className={`w-full flex items-center gap-4 p-4 rounded-2xl font-black text-[10px] transition-all ${telaAtiva === 'relatorios' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white/5'}`}>
-            <BarChart3 size={20}/> RELATÓRIOS
+          <button onClick={() => { setTelaAtiva("relatorios"); setMenuAberto(false); }} className={`w-full flex items-center gap-4 p-4 rounded-2xl font-black text-[10px] transition-all ${telaAtiva === "relatorios" ? "bg-emerald-600 text-white shadow-lg" : "text-slate-400 hover:bg-white/5"}`}>
+            <BarChart3 size={20} /> RELATÓRIOS
           </button>
           <div className="mt-10 pt-10 border-t border-white/10">
             <button onClick={lidarSair} className="flex items-center gap-4 p-4 text-red-400 font-black text-[10px] hover:bg-red-400/10 w-full rounded-2xl transition-all">
-              <LogOut size={20}/> SAIR
+              <LogOut size={20} /> SAIR
             </button>
           </div>
         </nav>
       </aside>
 
-      {/* CONTEÚDO PRINCIPAL */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         <header className="bg-white p-4 lg:p-6 border-b flex justify-between items-center z-50">
-          <button onClick={() => setMenuAberto(true)} className="lg:hidden p-2 text-slate-600">
-            <Menu/>
-          </button>
+          <button onClick={() => setMenuAberto(true)} className="lg:hidden p-2 text-slate-600"><Menu /></button>
           <h2 className="font-black text-slate-800 uppercase tracking-tighter text-sm">
             {telaAtiva === "agenda" ? "AGENDA DO DIA" : telaAtiva === "clientes" ? "CLIENTES" : "RELATÓRIOS"}
           </h2>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-10 pb-32">
-          
           {/* TELA DE RELATÓRIOS */}
           {telaAtiva === "relatorios" && (
-            <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in">
+            <div className="max-w-4xl mx-auto space-y-10">
               <div className="flex justify-center">
                 <SeletorData inputRef={inputRelatoriosRef} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {[
-                  { label: 'Concluídos', status: 'concluido', icon: <CheckCircle2/>, bg: 'bg-[#1e293b]', text: 'text-white' },
-                  { label: 'Faltas', status: 'faltou', icon: <AlertCircle/>, bg: 'bg-white', text: 'text-slate-800' },
-                  { label: 'Cancelados', status: 'cancelado', icon: <Trash2/>, bg: 'bg-white', text: 'text-slate-800' }
-                ].map(item => (
-                  <div key={item.label} className={`${item.bg} ${item.text} p-10 rounded-[45px] shadow-sm flex flex-col items-center border border-slate-100`}>
+                {relatorios.map((item) => (
+                  <div 
+                    key={item.label} 
+                    onClick={() => abrirModalRelatorio(item.status)}
+                    className={`${item.bg} ${item.text} p-10 rounded-[45px] shadow-sm flex flex-col items-center border border-slate-100 cursor-pointer hover:scale-105 transition-transform duration-200`}
+                  >
                     <div className="mb-4 text-emerald-500">{item.icon}</div>
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50 mb-2">{item.label}</p>
-                    <h3 className="text-5xl font-black">
-                      {clientesTodos.flatMap(c => c.historico || []).filter(h => h.status === item.status && h.dataConclusao === formatarData(dataFiltro)).length}
-                    </h3>
+                    <h3 className="text-5xl font-black">{item.count}</h3>
+                    <p className="text-[8px] mt-2 opacity-50">Clique para ver detalhes</p>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* TELA DE CLIENTES */}
+          {/* TELA DE CLIENTES - COM CABEÇALHO FIXO */}
           {telaAtiva === "clientes" && (
-            <div className="max-w-4xl mx-auto space-y-6">
-              <div className="relative">
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400" size={20}/>
-                    <input 
-                      type="text" 
-                      placeholder="Pesquisar por nome, email ou telefone..." 
-                      className="w-full pl-16 pr-6 py-5 bg-white border border-slate-200 rounded-[25px] shadow-sm font-bold text-slate-700 outline-none focus:border-emerald-400" 
-                      value={buscaCliente} 
-                      onChange={(e) => setBuscaCliente(e.target.value)}
-                    />
-                  </div>
-                  <button onClick={() => setFiltroMenuAberto(!filtroMenuAberto)} className={`flex items-center justify-center gap-3 px-8 py-5 rounded-[25px] font-black text-[11px] transition-all ${filtroMenuAberto ? 'bg-slate-800 text-white shadow-xl' : 'bg-white border border-slate-200 text-slate-600 shadow-sm'}`}>
-                    <Filter size={18} className="text-emerald-500"/> FILTROS
-                  </button>
-                </div>
-                
-                {filtroMenuAberto && (
-                  <div className="absolute right-0 mt-4 w-72 bg-white border border-slate-100 rounded-[35px] shadow-2xl p-8 z-[60] animate-in zoom-in duration-200">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Ordenar por</p>
-                    <div className="grid gap-2 mb-6">
-                      <button onClick={() => {setOrdemClientes("alfabetica"); setFiltroMenuAberto(false)}} className={`flex items-center gap-3 p-3 rounded-xl text-xs font-bold transition-all ${ordemClientes === 'alfabetica' ? 'bg-emerald-50 text-emerald-600' : 'text-slate-500 hover:bg-slate-50'}`}>
-                        <ArrowUpDown size={16}/> Ordem Alfabética
-                      </button>
-                      <button onClick={() => {setOrdemClientes("mais_agendamentos"); setFiltroMenuAberto(false)}} className={`flex items-center gap-3 p-3 rounded-xl text-xs font-bold transition-all ${ordemClientes === 'mais_agendamentos' ? 'bg-emerald-50 text-emerald-600' : 'text-slate-500 hover:bg-slate-50'}`}>
-                        <History size={16}/> Mais Visitas
-                      </button>
+            <div className="max-w-4xl mx-auto">
+              {/* CABEÇALHO FIXO */}
+              <div className="sticky top-0 z-10 bg-[#f8fafc] pb-4 space-y-4">
+                <div className="relative">
+                  <div className="flex flex-col md:flex-row gap-4">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                      <input 
+                        type="text" 
+                        placeholder="Pesquisar por nome, email ou telefone..." 
+                        className="w-full pl-16 pr-6 py-5 bg-white border border-slate-200 rounded-[25px] shadow-sm font-bold text-slate-700 outline-none focus:border-emerald-400" 
+                        value={buscaCliente} 
+                        onChange={(e) => setBuscaCliente(e.target.value)} 
+                      />
                     </div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Filtrar por Serviço</p>
-                    <div className="grid gap-2">
-                      {Object.keys(servicosConfig).map(s => (
-                        <button key={s} onClick={() => adicionarFiltro(s)} className="flex items-center justify-between p-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 transition-all">
-                          {s.toUpperCase()}<ChevronRight size={14} className="text-slate-300"/>
-                        </button>
-                      ))}
-                      <button onClick={() => {setFiltrosAtivos([]); setFiltroMenuAberto(false)}} className="mt-2 text-[10px] font-black text-red-400 uppercase hover:underline">Limpar Tudo</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              <div className="flex flex-wrap gap-2 items-center">
-                <span className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-full text-[9px] font-black shadow-sm">
-                  {ordemClientes === "alfabetica" ? <ArrowUpDown size={12}/> : <History size={12}/>} 
-                  {ordemClientes === "alfabetica" ? "A - Z" : "MAIS FREQUENTES"}
-                </span>
-                {filtrosAtivos.map(f => (
-                  <span key={f} className="flex items-center gap-2 bg-emerald-500 text-white px-4 py-2 rounded-full text-[9px] font-black shadow-sm animate-in zoom-in">
-                    {f.toUpperCase()}<button onClick={() => removerFiltro(f)} className="hover:bg-emerald-600 rounded-full p-0.5"><X size={12}/></button>
-                  </span>
-                ))}
-              </div>
-              
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 pt-2">
-                {clientesFiltrados.map(cliente => (
-                  <div key={cliente.id} onClick={() => setClienteFicha(cliente)} className="bg-white p-7 rounded-[40px] border border-transparent hover:border-emerald-500 transition-all cursor-pointer shadow-sm group hover:shadow-md">
-                    <div className="flex justify-between items-start mb-5">
-                      <div className="h-10 w-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-600">
-                        <User size={20}/>
-                      </div>
-                      <span className="bg-slate-100 text-slate-500 text-[9px] font-black px-3 py-1 rounded-lg uppercase">
-                        {cliente.totalGeral} {cliente.totalGeral === 1 ? 'VISITA' : 'VISITAS'}
-                      </span>
-                    </div>
-                    <h4 className="font-bold text-slate-800 text-lg mb-1">{cliente.nome || "Cliente"}</h4>
-                    {cliente.email && (
-                      <p className="text-[11px] text-slate-500 truncate">{cliente.email}</p>
-                    )}
-                    <div className="flex items-center gap-2 text-emerald-600 font-black text-[11px] mt-2">
-                      <MessageCircle size={14}/> {cliente.telefone || "Telefone não informado"}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* TELA DE AGENDA - VERSÃO MELHORADA */}
-          {telaAtiva === "agenda" && (
-            <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in">
-              <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-                <SeletorData inputRef={inputAgendaRef} />
-                <div className="flex bg-slate-200/50 p-1.5 rounded-2xl gap-1">
-                  {Object.keys(servicosConfig).map(id => (
                     <button 
-                      key={id} 
-                      onClick={() => setAbaAtiva(id)} 
-                      className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black transition-all ${abaAtiva === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                      onClick={() => setFiltroMenuAberto(!filtroMenuAberto)} 
+                      className={`flex items-center justify-center gap-3 px-8 py-5 rounded-[25px] font-black text-[11px] transition-all ${filtroMenuAberto ? "bg-slate-800 text-white shadow-xl" : "bg-white border border-slate-200 text-slate-600 shadow-sm"}`}
                     >
-                      <span className={abaAtiva === id ? servicosConfig[id].color : 'text-slate-400'}>{servicosConfig[id].icon}</span> 
-                      {id.toUpperCase()}
+                      <Filter size={18} className="text-emerald-500" /> FILTROS
                     </button>
+                  </div>
+
+                  {filtroMenuAberto && (
+                    <div className="absolute right-0 mt-4 w-72 bg-white border border-slate-100 rounded-[35px] shadow-2xl p-8 z-[60]">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Ordenar por</p>
+                      <div className="grid gap-2 mb-6">
+                        <button onClick={() => { setOrdemClientes("alfabetica"); setFiltroMenuAberto(false); }} className={`flex items-center gap-3 p-3 rounded-xl text-xs font-bold transition-all ${ordemClientes === "alfabetica" ? "bg-emerald-50 text-emerald-600" : "text-slate-500 hover:bg-slate-50"}`}>
+                          <ArrowUpDown size={16} /> Ordem Alfabética
+                        </button>
+                        <button onClick={() => { setOrdemClientes("mais_agendamentos"); setFiltroMenuAberto(false); }} className={`flex items-center gap-3 p-3 rounded-xl text-xs font-bold transition-all ${ordemClientes === "mais_agendamentos" ? "bg-emerald-50 text-emerald-600" : "text-slate-500 hover:bg-slate-50"}`}>
+                          <History size={16} /> Mais Visitas
+                        </button>
+                      </div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Filtrar por Serviço</p>
+                      <div className="grid gap-2">
+                        {Object.keys(servicosConfig).map((s) => (
+                          <button key={s} onClick={() => adicionarFiltro(s)} className="flex items-center justify-between p-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 transition-all">
+                            {s.toUpperCase()} <ChevronRight size={14} className="text-slate-300" />
+                          </button>
+                        ))}
+                        <button onClick={() => { setFiltrosAtivos([]); setFiltroMenuAberto(false); }} className="mt-2 text-[10px] font-black text-red-400 uppercase hover:underline">Limpar Tudo</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-2 items-center">
+                  <span className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-full text-[9px] font-black shadow-sm">
+                    {ordemClientes === "alfabetica" ? <ArrowUpDown size={12} /> : <History size={12} />}
+                    {ordemClientes === "alfabetica" ? "A - Z" : "MAIS FREQUENTES"}
+                  </span>
+                  {filtrosAtivos.map((f) => (
+                    <span key={f} className="flex items-center gap-2 bg-emerald-500 text-white px-4 py-2 rounded-full text-[9px] font-black shadow-sm">
+                      {f.toUpperCase()}
+                      <button onClick={() => removerFiltro(f)} className="hover:bg-emerald-600 rounded-full p-0.5"><X size={12} /></button>
+                    </span>
                   ))}
                 </div>
               </div>
-              
+
+              {/* LISTA DE CLIENTES - ROLÁVEL */}
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 pt-2">
+                {clientesFiltrados.length === 0 ? (
+                  <div className="col-span-full text-center py-20 text-slate-400">Nenhum cliente encontrado</div>
+                ) : (
+                  clientesFiltrados.map((cliente) => (
+                    <div key={cliente.id} onClick={() => setClienteFicha(cliente)} className="bg-white p-7 rounded-[40px] border border-transparent hover:border-emerald-500 transition-all cursor-pointer shadow-sm group hover:shadow-md">
+                      <div className="flex justify-between items-start mb-5">
+                        <div className="h-10 w-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-600">
+                          <User size={20} />
+                        </div>
+                        <span className="bg-slate-100 text-slate-500 text-[9px] font-black px-3 py-1 rounded-lg uppercase">
+                          {cliente.totalGeral} {cliente.totalGeral === 1 ? "VISITA" : "VISITAS"}
+                        </span>
+                      </div>
+                      <h4 className="font-bold text-slate-800 text-lg mb-1">{cliente.nome || "Cliente"}</h4>
+                      {cliente.email && <p className="text-[11px] text-slate-500 truncate">{cliente.email}</p>}
+                      <div className="flex items-center gap-2 text-emerald-600 font-black text-[11px] mt-2">
+                        <MessageCircle size={14} /> {cliente.telefone || "Telefone não informado"}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TELA DE AGENDA - COM CABEÇALHO FIXO */}
+          {telaAtiva === "agenda" && (
+            <div className="max-w-4xl mx-auto">
+              <div className="sticky top-0 z-10 bg-[#f8fafc] pb-4">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-6">
+                  <SeletorData inputRef={inputAgendaRef} />
+                  <div className="flex bg-slate-200/50 p-1.5 rounded-2xl gap-1">
+                    {Object.keys(servicosConfig).map((id) => (
+                      <button key={id} onClick={() => setAbaAtiva(id)} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black transition-all ${abaAtiva === id ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>
+                        <span className={abaAtiva === id ? servicosConfig[id].color : "text-slate-400"}>{servicosConfig[id].icon}</span>
+                        {id.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               <div className="grid gap-3">
-                {agendamentosTodos.filter(ag => ag.servico === abaAtiva).length === 0 ? (
+                {agendamentosDoDia.filter((ag) => ag.servico === abaAtiva).length === 0 ? (
                   <div className="bg-white/50 p-20 rounded-[40px] text-center border-2 border-dashed border-slate-200 text-slate-300 font-black uppercase text-[10px] tracking-widest">
-                    Nenhum agendamento para {abaAtiva}
+                    Nenhum agendamento para {abaAtiva} no dia {dataFormatada}
                   </div>
                 ) : (
-                  agendamentosTodos.filter(ag => ag.servico === abaAtiva).map(ag => {
-                    const cliente = buscarDadosCliente(ag.userId);
-                    return (
-                      <div 
-                        key={ag.id} 
-                        onClick={() => setAgendamentoSelecionado({ ...ag, clienteData: cliente })} 
-                        className="bg-white p-6 rounded-[30px] border border-transparent hover:border-emerald-500 transition-all cursor-pointer shadow-sm group hover:shadow-md"
-                      >
-                        <div className="flex justify-between items-start">
-                          <div className="flex items-center gap-4 flex-1">
-                            <div className="h-12 w-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors">
-                              <User size={22}/>
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-bold text-slate-800 text-lg">{ag.userName || cliente.nome || "Cliente"}</p>
-                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-                                <p className="text-[11px] font-black text-emerald-500 uppercase flex items-center gap-1.5">
-                                  <Clock size={14}/> {ag.horario}
-                                </p>
-                                <p className="text-[10px] text-slate-400">
-                                  {ag.data}
-                                </p>
-                                {cliente.telefone && (
-                                  <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                                    <MessageCircle size={10}/> {cliente.telefone}
+                  agendamentosDoDia
+                    .filter((ag) => ag.servico === abaAtiva)
+                    .map((ag) => {
+                      const cliente = buscarDadosCliente(ag.userId);
+                      const podeAlterar = podeAlterarStatus(ag.status);
+                      
+                      return (
+                        <div 
+                          key={ag.id} 
+                          onClick={() => podeAlterar && setAgendamentoSelecionado({ ...ag, clienteData: cliente })} 
+                          className={`bg-white p-6 rounded-[30px] border transition-all cursor-pointer shadow-sm group hover:shadow-md ${
+                            !podeAlterar ? "opacity-75 border-gray-200 cursor-default" : "border-transparent hover:border-emerald-500"
+                          }`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div className="flex items-center gap-4 flex-1">
+                              <div className="h-12 w-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors">
+                                <User size={22} />
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-bold text-slate-800 text-lg">{ag.userName || cliente.nome || "Cliente"}</p>
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                                  <p className="text-[11px] font-black text-emerald-500 uppercase flex items-center gap-1.5">
+                                    <Clock size={14} /> {ag.horario}
                                   </p>
-                                )}
+                                  {cliente.telefone && (
+                                    <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                                      <MessageCircle size={10} /> {cliente.telefone}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
                             </div>
+                            <div className={`text-[8px] font-black uppercase px-3 py-1.5 rounded-full ${
+                              ag.status === "concluido" ? "bg-emerald-100 text-emerald-700" : 
+                              ag.status === "pendente" ? "bg-amber-100 text-amber-700" : 
+                              ag.status === "faltou" ? "bg-red-100 text-red-700" : "bg-red-100 text-red-700"
+                            }`}>
+                              {ag.status === "concluido" ? "✓ CONCLUÍDO" : 
+                               ag.status === "pendente" ? "⏳ PENDENTE" : 
+                               ag.status === "faltou" ? "❌ FALTOU" : "✗ CANCELADO"}
+                            </div>
                           </div>
-                          <div className={`text-[8px] font-black uppercase px-3 py-1.5 rounded-full ${
-                            ag.status === 'concluido' ? 'bg-emerald-100 text-emerald-700' :
-                            ag.status === 'pendente' ? 'bg-amber-100 text-amber-700' :
-                            'bg-red-100 text-red-700'
-                          }`}>
-                            {ag.status === 'concluido' ? '✓ CONCLUÍDO' : 
-                             ag.status === 'pendente' ? '⏳ PENDENTE' : '✗ CANCELADO'}
-                          </div>
+                          {!podeAlterar && (
+                            <div className="mt-3 text-[9px] text-slate-400 border-t pt-2">
+                              Este agendamento já foi finalizado e não pode mais ser alterado.
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    );
-                  })
+                      );
+                    })
                 )}
               </div>
             </div>
@@ -417,124 +533,136 @@ const clientesFiltrados = clientesTodos
       {/* MODAL DETALHES DO AGENDAMENTO */}
       {agendamentoSelecionado && (
         <div className="fixed inset-0 bg-slate-900/80 z-[200] flex items-center justify-center p-4 backdrop-blur-md">
-          <div className="bg-white w-full max-w-md rounded-[45px] overflow-hidden shadow-2xl animate-in zoom-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-[45px] overflow-hidden shadow-2xl">
             <div className="bg-gradient-to-r from-[#059669] to-[#047857] p-6 text-white">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-[10px] font-black text-emerald-200 uppercase tracking-widest mb-1">
-                    Detalhes do Agendamento
-                  </p>
+                  <p className="text-[10px] font-black text-emerald-200 uppercase tracking-widest mb-1">Detalhes do Agendamento</p>
                   <h3 className="font-bold text-xl">{agendamentoSelecionado.userName || agendamentoSelecionado.clienteData?.nome || "Cliente"}</h3>
                 </div>
-                <button onClick={() => setAgendamentoSelecionado(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-                  <X size={20}/>
+                <button onClick={() => setAgendamentoSelecionado(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={20} /></button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div className="bg-slate-50 rounded-2xl p-4 space-y-3">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contato do Cliente</h4>
+                <div className="flex items-center gap-3">
+                  <div className="bg-white p-2 rounded-xl shadow-sm"><Mail size={16} className="text-emerald-600" /></div>
+                  <div className="flex-1">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase">E-mail</p>
+                    <p className="text-sm font-medium text-slate-700">{agendamentoSelecionado.clienteData?.email || "Não informado"}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="bg-white p-2 rounded-xl shadow-sm"><MessageCircle size={16} className="text-emerald-600" /></div>
+                  <div className="flex-1">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase">WhatsApp</p>
+                    <p className="text-sm font-medium text-slate-700">{agendamentoSelecionado.clienteData?.telefone || "Não informado"}</p>
+                  </div>
+                  {agendamentoSelecionado.clienteData?.telefone && (
+                    <button onClick={() => window.open(`https://wa.me/55${agendamentoSelecionado.clienteData.telefone.replace(/\D/g, "")}`, "_blank")} className="bg-green-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-green-600 transition">WhatsApp</button>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-slate-50 rounded-2xl p-4 space-y-3">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Detalhes da Consulta</h4>
+                <div className="flex justify-between items-center"><span className="text-sm text-slate-600">Serviço:</span><span className="font-bold text-slate-800">{agendamentoSelecionado.servico}</span></div>
+                <div className="flex justify-between items-center"><span className="text-sm text-slate-600">Data:</span><span className="font-bold text-slate-800">{agendamentoSelecionado.data}</span></div>
+                <div className="flex justify-between items-center"><span className="text-sm text-slate-600">Horário:</span><span className="font-bold text-emerald-600">{agendamentoSelecionado.horario}</span></div>
+                <div className="flex justify-between items-center pt-2 border-t border-slate-200">
+                  <span className="text-sm text-slate-600">Status Atual:</span>
+                  <span className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full ${agendamentoSelecionado.status === "concluido" ? "bg-emerald-100 text-emerald-700" : agendamentoSelecionado.status === "pendente" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>
+                    {agendamentoSelecionado.status === "concluido" ? "Concluído" : agendamentoSelecionado.status === "pendente" ? "Pendente" : agendamentoSelecionado.status === "faltou" ? "Faltou" : "Cancelado"}
+                  </span>
+                </div>
+              </div>
+
+              {agendamentoSelecionado.status === "pendente" ? (
+                <div className="space-y-2 pt-2">
+                  <button onClick={() => atualizarStatus(agendamentoSelecionado, "concluido")} className="w-full p-4 bg-emerald-600 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all">
+                    <CheckCircle2 size={18} /> MARCAR COMO CONCLUÍDO
+                  </button>
+                  <button onClick={() => atualizarStatus(agendamentoSelecionado, "faltou")} className="w-full p-4 bg-amber-50 text-amber-700 rounded-2xl font-black text-sm hover:bg-amber-100 transition-all">
+                    MARCAR COMO FALTA
+                  </button>
+                  <button onClick={() => atualizarStatus(agendamentoSelecionado, "cancelado")} className="w-full p-4 text-red-500 font-black text-sm hover:bg-red-50 rounded-2xl transition-all">
+                    CANCELAR AGENDAMENTO
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2 pt-2">
+                  <div className="p-4 bg-slate-100 rounded-2xl text-center text-slate-500 text-sm font-bold">
+                    Este agendamento já foi finalizado
+                  </div>
+                  <button onClick={() => setAgendamentoSelecionado(null)} className="w-full p-4 bg-slate-600 text-white rounded-2xl font-black text-sm hover:bg-slate-700 transition-all">
+                    FECHAR
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL RELATÓRIO */}
+      {modalRelatorioAberto && (
+        <div className="fixed inset-0 bg-slate-900/80 z-[200] flex items-center justify-center p-4 backdrop-blur-md">
+          <div className="bg-white w-full max-w-2xl rounded-[45px] max-h-[80vh] flex flex-col shadow-2xl">
+            <div className={`p-6 rounded-t-[45px] text-white ${
+              modalRelatorioAberto.status === "concluido" ? "bg-emerald-600" :
+              modalRelatorioAberto.status === "faltou" ? "bg-amber-600" : "bg-red-600"
+            }`}>
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-black">
+                    {modalRelatorioAberto.status === "concluido" ? "✓ Concluídos" :
+                     modalRelatorioAberto.status === "faltou" ? "❌ Faltas" : "✗ Cancelados"}
+                  </h2>
+                  <p className="text-white/80 text-sm mt-1">Total: {modalRelatorioAberto.clientes.length} agendamentos</p>
+                </div>
+                <button onClick={() => setModalRelatorioAberto(null)} className="p-2 hover:bg-white/10 rounded-full transition">
+                  <X size={24} />
                 </button>
               </div>
             </div>
             
-            <div className="p-6 space-y-5">
-              {/* Informações de Contato */}
-              <div className="bg-slate-50 rounded-2xl p-4 space-y-3">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contato do Cliente</h4>
-                
-                {/* Email */}
-                <div className="flex items-center gap-3">
-                  <div className="bg-white p-2 rounded-xl shadow-sm">
-                    <Mail size={16} className="text-emerald-600"/>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase">E-mail</p>
-                    <p className="text-sm font-medium text-slate-700">
-                      {agendamentoSelecionado.clienteData?.email || "Não informado"}
-                    </p>
-                  </div>
-                  {agendamentoSelecionado.clienteData?.email && (
-                    <button 
-                      onClick={() => window.location.href = `mailto:${agendamentoSelecionado.clienteData.email}`}
-                      className="text-emerald-600 hover:text-emerald-700 text-xs font-bold"
-                    >
-                      Enviar
-                    </button>
-                  )}
+            <div className="flex-1 overflow-y-auto p-6 space-y-3">
+              {modalRelatorioAberto.clientes.length === 0 ? (
+                <div className="text-center text-slate-400 py-10">
+                  Nenhum agendamento encontrado para este status.
                 </div>
-                
-                {/* WhatsApp */}
-                <div className="flex items-center gap-3">
-                  <div className="bg-white p-2 rounded-xl shadow-sm">
-                    <MessageCircle size={16} className="text-emerald-600"/>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase">WhatsApp</p>
-                    <p className="text-sm font-medium text-slate-700">
-                      {agendamentoSelecionado.clienteData?.telefone || "Não informado"}
-                    </p>
-                  </div>
-                  {agendamentoSelecionado.clienteData?.telefone && (
+              ) : (
+                modalRelatorioAberto.clientes.map((item, index) => (
+                  <div key={index} className="bg-slate-50 rounded-2xl p-4 flex justify-between items-center hover:bg-slate-100 transition">
+                    <div>
+                      <p className="font-bold text-slate-800">{item.clienteNome}</p>
+                      <div className="flex gap-3 mt-1 text-xs text-slate-500">
+                        <span>{item.servico}</span>
+                        <span>•</span>
+                        <span>{item.data} às {item.horario}</span>
+                      </div>
+                      {item.clienteTelefone && item.clienteTelefone !== "Não informado" && (
+                        <p className="text-[10px] text-emerald-600 mt-1 flex items-center gap-1">
+                          <MessageCircle size={10} /> {item.clienteTelefone}
+                        </p>
+                      )}
+                    </div>
                     <button 
-                      onClick={() => window.open(`https://wa.me/55${agendamentoSelecionado.clienteData.telefone.replace(/\D/g,'')}`, '_blank')}
-                      className="bg-green-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-green-600 transition"
+                      onClick={() => {
+                        if (item.clienteTelefone && item.clienteTelefone !== "Não informado") {
+                          window.open(`https://wa.me/55${item.clienteTelefone.replace(/\D/g, "")}`, "_blank");
+                        }
+                      }}
+                      className="bg-green-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-green-600 transition"
+                      disabled={!item.clienteTelefone || item.clienteTelefone === "Não informado"}
                     >
                       WhatsApp
                     </button>
-                  )}
-                </div>
-              </div>
-              
-              {/* Informações do Agendamento */}
-              <div className="bg-slate-50 rounded-2xl p-4 space-y-3">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Detalhes da Consulta</h4>
-                
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-600">Serviço:</span>
-                  <span className="font-bold text-slate-800">{agendamentoSelecionado.servico}</span>
-                </div>
-                
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-600">Data:</span>
-                  <span className="font-bold text-slate-800">{agendamentoSelecionado.data}</span>
-                </div>
-                
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-600">Horário:</span>
-                  <span className="font-bold text-emerald-600">{agendamentoSelecionado.horario}</span>
-                </div>
-                
-                <div className="flex justify-between items-center pt-2 border-t border-slate-200">
-                  <span className="text-sm text-slate-600">Status Atual:</span>
-                  <span className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full ${
-                    agendamentoSelecionado.status === 'concluido' ? 'bg-emerald-100 text-emerald-700' :
-                    agendamentoSelecionado.status === 'pendente' ? 'bg-amber-100 text-amber-700' :
-                    'bg-red-100 text-red-700'
-                  }`}>
-                    {agendamentoSelecionado.status === 'concluido' ? 'Concluído' : 
-                     agendamentoSelecionado.status === 'pendente' ? 'Pendente' : 'Cancelado'}
-                  </span>
-                </div>
-              </div>
-              
-              {/* Ações */}
-              <div className="space-y-2 pt-2">
-                <button 
-                  onClick={() => atualizarStatus(agendamentoSelecionado, 'concluido')} 
-                  className="w-full p-4 bg-emerald-600 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all"
-                >
-                  <CheckCircle2 size={18}/> MARCAR COMO CONCLUÍDO
-                </button>
-                
-                <button 
-                  onClick={() => atualizarStatus(agendamentoSelecionado, 'faltou')} 
-                  className="w-full p-4 bg-amber-50 text-amber-700 rounded-2xl font-black text-sm hover:bg-amber-100 transition-all"
-                >
-                  MARCAR COMO FALTA
-                </button>
-                
-                <button 
-                  onClick={() => atualizarStatus(agendamentoSelecionado, 'cancelado')} 
-                  className="w-full p-4 text-red-500 font-black text-sm hover:bg-red-50 rounded-2xl transition-all"
-                >
-                  CANCELAR AGENDAMENTO
-                </button>
-              </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -547,63 +675,37 @@ const clientesFiltrados = clientesTodos
             <div className="p-8 border-b flex justify-between items-center bg-gradient-to-r from-[#059669] to-[#047857] rounded-t-[50px]">
               <div>
                 <h3 className="font-black text-2xl text-white">{clienteFicha.nome || "Cliente"}</h3>
-                {clienteFicha.email && (
-                  <p className="text-emerald-100 text-sm mt-1">{clienteFicha.email}</p>
-                )}
+                {clienteFicha.email && <p className="text-emerald-100 text-sm mt-1">{clienteFicha.email}</p>}
               </div>
-              <button onClick={() => setClienteFicha(null)} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition">
-                <X size={20} className="text-white"/>
-              </button>
+              <button onClick={() => setClienteFicha(null)} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition"><X size={20} className="text-white" /></button>
             </div>
-            
             <div className="flex-1 overflow-y-auto p-8 space-y-6">
               <div className="flex gap-4">
                 {clienteFicha.telefone && (
-                  <button 
-                    onClick={() => window.open(`https://wa.me/55${clienteFicha.telefone.replace(/\D/g,'')}`, '_blank')} 
-                    className="flex-1 bg-green-500 text-white p-4 rounded-3xl font-black text-[11px] uppercase flex items-center justify-center gap-2 hover:bg-green-600 transition"
-                  >
-                    <MessageCircle size={18}/> WhatsApp
-                  </button>
+                  <button onClick={() => window.open(`https://wa.me/55${clienteFicha.telefone.replace(/\D/g, "")}`, "_blank")} className="flex-1 bg-green-500 text-white p-4 rounded-3xl font-black text-[11px] uppercase flex items-center justify-center gap-2 hover:bg-green-600 transition"><MessageCircle size={18} /> WhatsApp</button>
                 )}
                 {clienteFicha.email && (
-                  <button 
-                    onClick={() => window.location.href = `mailto:${clienteFicha.email}`}
-                    className="flex-1 bg-emerald-600 text-white p-4 rounded-3xl font-black text-[11px] uppercase flex items-center justify-center gap-2 hover:bg-emerald-700 transition"
-                  >
-                    <Mail size={18}/> Enviar Email
-                  </button>
+                  <button onClick={() => window.location.href = `mailto:${clienteFicha.email}`} className="flex-1 bg-emerald-600 text-white p-4 rounded-3xl font-black text-[11px] uppercase flex items-center justify-center gap-2 hover:bg-emerald-700 transition"><Mail size={18} /> Enviar Email</button>
                 )}
                 <div className="px-6 py-4 bg-slate-50 rounded-3xl text-center border">
                   <span className="text-slate-400 text-[9px] font-black uppercase">Visitas</span>
                   <p className="font-black text-xl text-slate-800">{clienteFicha.totalGeral || 0}</p>
                 </div>
               </div>
-              
               <div>
                 <h4 className="font-black text-slate-400 text-[10px] uppercase border-b pb-2 mb-3">Histórico de Consultas</h4>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {clienteFicha.historico?.length > 0 ? (
                     clienteFicha.historico.map((h, i) => (
                       <div key={i} className="p-4 bg-slate-50 rounded-2xl flex justify-between items-center hover:bg-slate-100 transition">
-                        <div>
-                          <p className="font-bold text-slate-800 text-sm">{h.servico}</p>
-                          <p className="text-[10px] text-slate-400 mt-1">{h.data} • {h.horario}</p>
-                        </div>
-                        <span className={`text-[8px] font-black uppercase px-3 py-1.5 rounded-full ${
-                          h.status === 'concluido' ? 'bg-emerald-100 text-emerald-700' :
-                          h.status === 'faltou' ? 'bg-amber-100 text-amber-700' :
-                          'bg-red-100 text-red-700'
-                        }`}>
-                          {h.status === 'concluido' ? 'Concluído' : 
-                           h.status === 'faltou' ? 'Faltou' : 'Cancelado'}
+                        <div><p className="font-bold text-slate-800 text-sm">{h.servico}</p><p className="text-[10px] text-slate-400 mt-1">{h.data} • {h.horario}</p></div>
+                        <span className={`text-[8px] font-black uppercase px-3 py-1.5 rounded-full ${h.status === "concluido" ? "bg-emerald-100 text-emerald-700" : h.status === "faltou" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>
+                          {h.status === "concluido" ? "Concluído" : h.status === "faltou" ? "Faltou" : "Cancelado"}
                         </span>
                       </div>
                     ))
                   ) : (
-                    <div className="text-center text-slate-400 py-8 text-sm">
-                      Nenhum histórico encontrado
-                    </div>
+                    <div className="text-center text-slate-400 py-8 text-sm">Nenhum histórico encontrado</div>
                   )}
                 </div>
               </div>
