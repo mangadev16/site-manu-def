@@ -47,6 +47,20 @@ const Agendamento = () => {
     ? nomeCompleto.split("|")[0]
     : nomeCompleto;
 
+  // Efeito para controlar overflow do body no mobile
+  useEffect(() => {
+    const isMobile = window.innerWidth < 1024;
+    if (isMobile) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    }
+    return () => {
+      document.body.style.overflow = 'auto';
+      document.body.style.position = 'static';
+    };
+  }, []);
+
   useEffect(() => {
     const buscarHorariosOcupados = async () => {
       try {
@@ -68,68 +82,63 @@ const Agendamento = () => {
     buscarHorariosOcupados();
   }, [dataSelecionada]);
 
-  // Substitua a função finalizarAgendamento por esta versão com verificação:
+  const finalizarAgendamento = async () => {
+    try {
+      const user = auth.currentUser;
+      
+      if (!user) return alert("Usuário não logado.");
+      if (!servicoSelecionado) return alert("Selecione um serviço.");
 
-const finalizarAgendamento = async () => {
-  try {
-    const user = auth.currentUser;
-    
-    if (!user) return alert("Usuário não logado.");
-    if (!servicoSelecionado) return alert("Selecione um serviço.");
+      const dataString = dataSelecionada.toLocaleDateString("pt-BR");
+      const nomeServico = typeof servicoSelecionado === 'string' 
+        ? servicoSelecionado 
+        : servicoSelecionado.nome || servicoSelecionado.id;
 
-    const dataString = dataSelecionada.toLocaleDateString("pt-BR");
-    const nomeServico = typeof servicoSelecionado === 'string' 
-      ? servicoSelecionado 
-      : servicoSelecionado.nome || servicoSelecionado.id;
+      // VERIFICAR SE HORÁRIO JÁ ESTÁ OCUPADO
+      const q = query(
+        collection(db, "agendamentos"),
+        where("data", "==", dataString),
+        where("horario", "==", horarioSelecionado)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        alert("Este horário já está ocupado! Por favor, escolha outro horário.");
+        return;
+      }
 
-    // VERIFICAR SE HORÁRIO JÁ ESTÁ OCUPADO (IMPORTANTE!)
-    const q = query(
-      collection(db, "agendamentos"),
-      where("data", "==", dataString),
-      where("horario", "==", horarioSelecionado)
-    );
-    
-    const querySnapshot = await getDocs(q);
-    if (!querySnapshot.empty) {
-      alert("Este horário já está ocupado! Por favor, escolha outro horário.");
-      return; // Impede o agendamento duplicado
+      const novoAgendamento = {
+        servico: nomeServico,
+        data: dataString,
+        horario: horarioSelecionado,
+        status: "pendente",
+        timestamp: new Date(),
+        userId: user.uid,
+        userName: user.displayName ? user.displayName.split("|")[0] : "Cliente",
+      };
+
+      const docRef = await addDoc(collection(db, "agendamentos"), novoAgendamento);
+      const idGerado = docRef.id;
+
+      const userRef = doc(db, "usuarios", user.uid);
+      await setDoc(userRef, {
+        agendamentos: arrayUnion({
+          ...novoAgendamento,
+          id: idGerado,
+        }),
+      }, { merge: true });
+
+      console.log("Agendamento realizado para:", user.email);
+      
+      setEtapa(5);
+
+    } catch (error) {
+      console.error("Erro detalhado:", error);
+      alert("Erro ao finalizar: " + error.message);
+      setEtapa(5);
     }
+  };
 
-    const novoAgendamento = {
-      servico: nomeServico,
-      data: dataString,
-      horario: horarioSelecionado,
-      status: "pendente",
-      timestamp: new Date(),
-      userId: user.uid,
-      userName: user.displayName ? user.displayName.split("|")[0] : "Cliente",
-    };
-
-    // 1. SALVAR NO FIREBASE
-    const docRef = await addDoc(collection(db, "agendamentos"), novoAgendamento);
-    const idGerado = docRef.id;
-
-    const userRef = doc(db, "usuarios", user.uid);
-    await setDoc(userRef, {
-      agendamentos: arrayUnion({
-        ...novoAgendamento,
-        id: idGerado,
-      }),
-    }, { merge: true });
-
-    // 2. SEM ENVIO DE EMAIL - APENAS MOSTRA O EMAIL DO CLIENTE
-    console.log("Agendamento realizado para:", user.email);
-    
-    setEtapa(5);
-
-  } catch (error) {
-    console.error("Erro detalhado:", error);
-    alert("Erro ao finalizar: " + error.message);
-    setEtapa(5);
-  }
-};
-
-  // Resto das funções (obterHorariosDoDia, mudarMes, irParaHoje, etc.) permanecem iguais
   const obterHorariosDoDia = (data) => {
     const diaDaSemana = data.getDay();
     const manha = ["08:00", "09:00", "10:00", "11:00"];
@@ -170,13 +179,18 @@ const finalizarAgendamento = async () => {
   const isAtivo = (rota) => location.pathname === rota;
   const horariosDisponiveis = obterHorariosDoDia(dataSelecionada);
 
-  // CORREÇÃO NA ETAPA 3: Adicione um console.log para debug
-  // Na parte do JSX, mantenha como está, mas vamos garantir que o estado está sendo setado corretamente
-
   return (
-    <div className="min-h-screen w-full bg-gray-50 font-sans flex flex-col relative">
-      {/* Header permanece igual */}
-      <header className="bg-[#059669] text-white p-4 flex justify-between items-center shadow-md sticky top-0 z-50">
+    <div className="fixed inset-0 h-screen w-full bg-gray-50 font-sans flex flex-col overflow-hidden">
+      {/* Overlay do Menu Mobile */}
+      {menuAberto && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setMenuAberto(false)}
+        />
+      )}
+
+      {/* CABEÇALHO - IDÊNTICO AO DASHBOARD */}
+      <header className="bg-[#059669] text-white p-4 flex justify-between items-center shadow-md z-50">
         <div className="flex items-center gap-4">
           <button
             onClick={() => {
@@ -238,9 +252,7 @@ const finalizarAgendamento = async () => {
             className="flex items-center gap-2 bg-emerald-700/50 px-3 py-2 rounded-xl hover:bg-emerald-700/70 transition-all"
           >
             <User size={16} />
-            <span className="text-xs font-bold hidden sm:block">
-              {nomeUsuario}
-            </span>
+            <span className="text-xs font-bold">{nomeUsuario}</span>
             <ChevronDown
               size={14}
               className={
@@ -270,13 +282,12 @@ const finalizarAgendamento = async () => {
         </div>
       </header>
 
-      {/* MAIN CONTENT */}
-      <main className="flex-1 p-4 lg:p-10 flex flex-col items-center bg-gray-50 pb-20">
+      {/* CONTEÚDO PRINCIPAL */}
+      <main className="flex-1 overflow-y-auto p-4 lg:p-10 flex flex-col items-center">
         <div className="w-full max-w-md bg-white rounded-[35px] shadow-xl border border-emerald-50 overflow-hidden">
           {/* ETAPA 1: CALENDÁRIO */}
           {etapa === 1 && (
             <div className="p-6">
-              {/* Conteúdo do calendário - igual ao original */}
               <div className="flex items-center justify-between mb-6 bg-emerald-50 p-2 rounded-2xl">
                 <div className="flex gap-1">
                   <button
@@ -426,7 +437,7 @@ const finalizarAgendamento = async () => {
             </div>
           )}
 
-          {/* ETAPA 3: SELEÇÃO DE SERVIÇO - CORRIGIDA */}
+          {/* ETAPA 3: SELEÇÃO DE SERVIÇO */}
           {etapa === 3 && (
             <div className="p-6 space-y-3">
               <button
@@ -466,8 +477,8 @@ const finalizarAgendamento = async () => {
                 <button
                   key={s.id}
                   onClick={() => {
-                    console.log("Selecionando serviço:", s.nome); // Debug
-                    setServicoSelecionado(s.nome); // Agora passa apenas o nome como string
+                    console.log("Selecionando serviço:", s.nome);
+                    setServicoSelecionado(s.nome);
                     setEtapa(4);
                   }}
                   className={`w-full p-5 rounded-2xl border-2 border-gray-100 flex items-center justify-between hover:border-emerald-500 transition-all ${s.cor}`}
@@ -560,14 +571,7 @@ const finalizarAgendamento = async () => {
         </div>
       </main>
 
-      {/* MENU MOBILE */}
-      {menuAberto && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setMenuAberto(false)}
-        />
-      )}
-
+      {/* SIDEBAR MOBILE - IDÊNTICA AO DASHBOARD */}
       <aside
         className={`lg:hidden fixed top-0 left-0 h-full w-64 bg-white z-[60] shadow-2xl transform transition-transform duration-300 ${
           menuAberto ? "translate-x-0" : "-translate-x-full"

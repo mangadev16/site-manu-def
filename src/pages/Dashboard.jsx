@@ -3,7 +3,7 @@ import { auth } from "../firebase";
 import { useNavigate, useLocation } from "react-router-dom";
 import { 
   User, LogOut, Settings, ChevronDown, Apple, 
-  Activity, Thermometer, X, ClipboardList, PenLine, PlusCircle 
+  Activity, Thermometer, X, ClipboardList, PenLine, PlusCircle, PhoneCall 
 } from "lucide-react";
 
 const Dashboard = () => {
@@ -32,31 +32,31 @@ const Dashboard = () => {
   }, []);
 
   const servicos = [
-  { 
-    id: 1, 
-    nome: "Nutrição", 
-    desc: "Planos alimentares personalizados.", 
-    icon: <Apple className="text-emerald-600" size={24} />,
-    path: "/Nutricao" // <--- ADICIONE AQUI
-  },
-  { 
-    id: 2, 
-    nome: "Acupuntura", 
-    desc: "Equilíbrio e alívio de dores.", 
-    icon: <PenLine className="text-emerald-600" size={24} />,
-    path: "/Acupuntura" // <--- ADICIONE AQUI
-  },
-  { 
-    id: 3, 
-    nome: "Farmácia", 
-    desc: "Orientação farmacêutica e fórmulas.", 
-    icon: <Thermometer className="text-emerald-600" size={24} />,
-    path: "/Farmacia" // <--- ADICIONE AQUI
-  },
-];
+    { 
+      id: 1, 
+      nome: "Nutrição", 
+      desc: "Planos alimentares personalizados.", 
+      icon: <Apple className="text-emerald-600" size={24} />,
+      path: "/Nutricao"
+    },
+    { 
+      id: 2, 
+      nome: "Acupuntura", 
+      desc: "Equilíbrio e alívio de dores.", 
+      icon: <PenLine className="text-emerald-600" size={24} />,
+      path: "/Acupuntura"
+    },
+    { 
+      id: 3, 
+      nome: "Farmácia", 
+      desc: "Orientação farmacêutica e fórmulas.", 
+      icon: <Thermometer className="text-emerald-600" size={24} />,
+      path: "/Farmacia"
+    },
+  ];
 
   return (
-    <div className="fixed inset-0 h-screen w-full bg-gray-50 font-sans flex flex-col overflow-hidden overscroll-behavior-none">
+    <div className="fixed inset-0 h-screen w-full bg-gray-50 font-sans flex flex-col">
       {menuAberto && (
         <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
@@ -104,18 +104,22 @@ const Dashboard = () => {
               >
                 <ClipboardList size={14} /> Meus Dados
               </button>
+              <button
+                onClick={() => navigate("/contatos")}
+                className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${isAtivo("/contatos") ? "bg-emerald-700/50" : "hover:bg-emerald-700/30"}`}
+              >
+                <PhoneCall size={14} /> Contatos
+              </button>
             </nav>
           </div>
         </div>
 
-        {/* Lógica do Perfil no Cabeçalho */}
         <div className="relative">
           <button
             onClick={() => setPerfilAberto(!perfilAberto)}
             className="flex items-center gap-2 bg-emerald-700/50 px-3 py-2 rounded-xl hover:bg-emerald-700/70 transition-all"
           >
             <User size={16} />
-            {/* A variável nomeUsuario já foi tratada no topo do arquivo para remover o "|" */}
             <span className="text-xs font-bold">{nomeUsuario}</span>
             <ChevronDown
               size={14}
@@ -143,14 +147,12 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <main className="flex-1 p-4 lg:p-10 flex flex-col items-center">
-        {/* h-full no mobile para distribuir, h-auto no PC para não esticar */}
+      <main className="flex-1 overflow-y-auto p-4 lg:p-10 flex flex-col items-center">
         <div className="w-full max-w-[1000px] h-full lg:h-auto flex flex-col lg:block">
           <h2 className="text-xl lg:text-3xl font-bold text-[#064e3b] mb-4 lg:mb-10 text-left lg:text-center w-full shrink-0">
             Nossos Serviços
           </h2>
 
-          {/* GRID: Diferente para Mobile (Vertical/Flex) e PC (Horizontal/Grid) */}
           <div className="flex-1 lg:flex-none flex flex-col lg:grid lg:grid-cols-3 gap-3 lg:gap-8 w-full mb-6 lg:mb-12">
             {servicos.map((s) => (
               <div
@@ -217,6 +219,15 @@ const Dashboard = () => {
             className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 ${isAtivo("/meus-dados") ? "bg-emerald-50 text-emerald-700" : "text-gray-600"}`}
           >
             <ClipboardList size={18} /> Meus Dados
+          </button>
+          <button
+            onClick={() => {
+              navigate("/contatos");
+              setMenuAberto(false);
+            }}
+            className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 ${isAtivo("/contatos") ? "bg-emerald-50 text-emerald-700" : "text-gray-600"}`}
+          >
+            <PhoneCall size={18} /> Contatos
           </button>
         </nav>
       </aside>

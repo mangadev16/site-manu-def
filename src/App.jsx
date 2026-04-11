@@ -10,7 +10,8 @@ import Agendamento from "./pages/Agendamento";
 import Nutricao from "./pages/Nutricao";
 import Acupuntura from "./pages/Acupuntura";
 import Farmacia from "./pages/Farmacia";
-import Adm from "./pages/Adm"; // Corrigido para "Adm" com A maiúsculo
+import Adm from "./pages/Adm"; 
+import Contatos from "./pages/Contatos"
 
 function App() {
   const [user, setUser] = useState(null);
@@ -41,6 +42,7 @@ function App() {
         <Route path="/meus-dados" element={user ? <MeusDados /> : <Navigate to="/login" />} /> 
         <Route path="/perfil" element={user ? <Perfil /> : <Navigate to="/login" />} />
         <Route path="/agendamento" element={user ? <Agendamento /> : <Navigate to="/login" />} />
+        <Route path="/contatos" element={user ? <Contatos /> : <Navigate to="/contatos" />} />
         
         {/* Rotas de Serviços */}
         <Route path="/nutricao" element={user ? <Nutricao /> : <Navigate to="/login" />} />
