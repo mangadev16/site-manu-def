@@ -35,6 +35,7 @@ const Adm = () => {
   const [clienteSelecionado, setClienteSelecionado] = useState(null);
   const [clienteFicha, setClienteFicha] = useState(null);
   const [modalNovoHistorico, setModalNovoHistorico] = useState(false);
+  const [modalLogOut, setModalLogOut] = useState(false);
   const [novoServico, setNovoServico] = useState("");
   const [novoValor, setNovoValor] = useState("");
   const [ordenacao, setOrdenacao] = useState("nome"); 
@@ -59,9 +60,9 @@ const Adm = () => {
             agendamentosAcumulados.push({
               ...ag,
               clienteId: c.id,
-              clienteNome: c.nome,
-              clienteTelefone: c.telefone,
-              clienteEmail: c.email,
+              clienteNome: c.nome || "Sem Nome",
+              clienteTelefone: c.telefone || "",
+              clienteEmail: c.email || "",
             });
           });
         }
@@ -148,14 +149,14 @@ const Adm = () => {
   const agendamentosFiltrados = todosAgendamentos.filter((ag) => {
     const bateData = ag.data === formatarData(dataFiltro);
     const bateStatus = statusFiltro === "todos" || ag.status === statusFiltro;
-    const bateBusca = busca === "" || ag.clienteNome.toLowerCase().includes(busca.toLowerCase());
+    const bateBusca = busca === "" || (ag.clienteNome && ag.clienteNome.toLowerCase().includes(busca.toLowerCase()));
     return bateData && bateStatus && bateBusca;
   });
 
   const clientesFiltradosETordenados = clientesTodos
-    .filter((c) => busca === "" || c.nome.toLowerCase().includes(busca.toLowerCase()) || c.telefone.includes(busca))
+    .filter((c) => busca === "" || (c.nome && c.nome.toLowerCase().includes(busca.toLowerCase())) || (c.telefone && c.telefone.includes(busca)))
     .sort((a, b) => {
-      if (ordenacao === "nome") return a.nome.localeCompare(b.nome);
+      if (ordenacao === "nome") return (a.nome || "").localeCompare(b.nome || "");
       const totalA = a.historico?.reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0) || 0;
       const totalB = b.historico?.reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0) || 0;
       return totalB - totalA;
@@ -184,7 +185,7 @@ const Adm = () => {
             </h1>
           </div>
         </div>
-        <button onClick={lidarComLogout} className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 font-bold text-xs transition-all shadow-xs">
+        <button onClick={() => setModalLogOut(true)} className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 font-bold text-xs transition-all shadow-xs">
           <LogOut size={14} /> Sair
         </button>
       </header>
@@ -389,8 +390,8 @@ const Adm = () => {
                         return (
                           <div key={c.id} onClick={() => setClienteSelecionado(c)} className="p-4 flex justify-between items-center cursor-pointer transition-all hover:bg-slate-50/40" style={clienteSelecionado?.id === c.id ? { borderLeft: `4px solid ${ROXO_DESTAQUE}`, paddingLeft: "12px", backgroundColor: LILAS_SUAVE } : {}}>
                             <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-lg flex items-center justify-center font-bold uppercase text-xs" style={{ backgroundColor: LILAS_SUAVE, color: TEXTO_LILAS }}>{c.nome?.slice(0, 2)}</div>
-                              <div><h3 className="font-extrabold text-slate-800 text-xs">{c.nome}</h3><p className="text-[11px] text-slate-400 mt-0.5">{c.telefone}</p></div>
+                              <div className="w-9 h-9 rounded-lg flex items-center justify-center font-bold uppercase text-xs" style={{ backgroundColor: LILAS_SUAVE, color: TEXTO_LILAS }}>{(c.nome || "SN").slice(0, 2)}</div>
+                              <div><h3 className="font-extrabold text-slate-800 text-xs">{c.nome || "Sem Nome"}</h3><p className="text-[11px] text-slate-400 mt-0.5">{c.telefone || "Sem Telefone"}</p></div>
                             </div>
                             <div className="text-right flex items-center gap-2">
                               <div><p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Total</p><p className="font-black text-slate-700 text-xs">R$ {totalFaturado}</p></div>
@@ -412,13 +413,13 @@ const Adm = () => {
                   <div className="space-y-5">
                     <div className="flex justify-between items-start border-b border-slate-100 pb-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-xl flex items-center justify-center font-black text-sm uppercase" style={{ backgroundColor: LILAS_SUAVE, color: TEXTO_LILAS }}>{clienteFicha.nome?.slice(0,2)}</div>
-                        <div><h2 className="font-black text-slate-900 text-sm">{clienteFicha.nome}</h2><p className="text-[11px] text-slate-400 mt-0.5">Ficha do Cliente</p></div>
+                        <div className="w-11 h-11 rounded-xl flex items-center justify-center font-black text-sm uppercase" style={{ backgroundColor: LILAS_SUAVE, color: TEXTO_LILAS }}>{(clienteFicha.nome || "SN").slice(0,2)}</div>
+                        <div><h2 className="font-black text-slate-900 text-sm">{clienteFicha.nome || "Sem Nome"}</h2><p className="text-[11px] text-slate-400 mt-0.5">Ficha do Cliente</p></div>
                       </div>
                     </div>
                     <div className="space-y-2 text-xs">
-                      <div className="flex items-center gap-2.5 p-2.5 bg-slate-50 rounded-xl border border-slate-100"><Mail size={14} className="text-slate-400" /><div className="overflow-hidden"><p className="text-[9px] text-slate-400 uppercase font-bold">E-mail</p><p className="font-semibold text-slate-700 truncate">{clienteFicha.email}</p></div></div>
-                      <div className="flex items-center gap-2.5 p-2.5 bg-slate-50 rounded-xl border border-slate-100"><MessageCircle size={14} className="text-slate-400" /><div><p className="text-[9px] text-slate-400 uppercase font-bold">WhatsApp</p><p className="font-semibold text-slate-700">{clienteFicha.telefone}</p></div></div>
+                      <div className="flex items-center gap-2.5 p-2.5 bg-slate-50 rounded-xl border border-slate-100"><Mail size={14} className="text-slate-400" /><div className="overflow-hidden"><p className="text-[9px] text-slate-400 uppercase font-bold">E-mail</p><p className="font-semibold text-slate-700 truncate">{clienteFicha.email || "Não informado"}</p></div></div>
+                      <div className="flex items-center gap-2.5 p-2.5 bg-slate-50 rounded-xl border border-slate-100"><MessageCircle size={14} className="text-slate-400" /><div><p className="text-[9px] text-slate-400 uppercase font-bold">WhatsApp</p><p className="font-semibold text-slate-700">{clienteFicha.telefone || "Não informado"}</p></div></div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="p-2.5 rounded-xl border" style={{ backgroundColor: LILAS_SUAVE, borderColor: "#e6e1f5" }}><p className="text-[9px] uppercase font-black tracking-wider" style={{ color: TEXTO_LILAS }}>Consultas</p><p className="font-black text-lg mt-0.5" style={{ color: ROXO_PROFUNDO }}>{clienteFicha.historico?.length || 0}</p></div>
                         <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100"><p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Faturado</p><p className="font-black text-slate-700 text-lg mt-0.5">R$ {clienteFicha.totalGeral || 0}</p></div>
@@ -486,6 +487,27 @@ const Adm = () => {
                 Salvar no Histórico
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CONFIRMAR LOGOUT */}
+      {modalLogOut && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
+          <div className="bg-white p-5 rounded-t-2xl sm:rounded-2xl max-w-sm w-full space-y-4 shadow-xl border border-slate-100 animate-scale-up">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+              <h3 className="font-black text-slate-900 text-sm">Confirmar Saída</h3>
+              <button onClick={() => setModalLogOut(false)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+            </div>
+            <p className="text-xs text-slate-600">Tem certeza de que deseja encerrar a sua sessão e sair do painel administrativo?</p>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setModalLogOut(false)} className="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded-xl font-bold text-xs transition-all hover:bg-slate-50">
+                Cancelar
+              </button>
+              <button onClick={lidarComLogout} className="flex-1 py-2.5 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all" style={{ backgroundColor: ROXO_DESTAQUE, boxShadow: `0 4px 14px rgba(160, 144, 201, 0.35)` }}>
+                Confirmar e Sair
+              </button>
+            </div>
           </div>
         </div>
       )}

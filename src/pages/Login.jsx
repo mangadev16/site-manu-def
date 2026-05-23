@@ -125,7 +125,7 @@ const Login = () => {
               whiteSpace: "nowrap"
             }}>
               {modoAdmin
-                ? "⬡ Modo Administrador"
+                ? "Nutrição ● Farmácia ● Acupuntura"
                 : "Nutrição ● Farmácia ● Acupuntura"}
             </p>
           </div>

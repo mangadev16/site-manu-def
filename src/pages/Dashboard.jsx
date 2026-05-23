@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { auth } from "../firebase";
 import { useNavigate, useLocation } from "react-router-dom";
 import { 
-  User, LogOut, Settings, ChevronDown, Apple, 
-  Activity, Thermometer, X, ClipboardList, PenLine, PlusCircle, PhoneCall 
+  User, LogOut, X, ClipboardList, PlusCircle, PhoneCall, 
+  Apple, Sparkles, Activity, ShieldCheck, ChevronRight, Menu, HelpCircle
 } from "lucide-react";
 
 const Dashboard = () => {
@@ -11,89 +11,223 @@ const Dashboard = () => {
   const [menuAberto, setMenuAberto] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const nomeCompleto = auth.currentUser?.displayName || "Usuário";
+  const nomeCompleto = auth.currentUser?.displayName || "Cliente";
   const nomeUsuario = nomeCompleto.includes("|") 
     ? nomeCompleto.split("|")[0] 
     : nomeCompleto;
 
   const isAtivo = (rota) => location.pathname === rota;
 
-  useEffect(() => {
-    const isMobile = window.innerWidth < 1024;
-    if (isMobile) {
-      document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.width = '100%';
-    }
-    return () => {
-      document.body.style.overflow = 'auto';
-      document.body.style.position = 'static';
-    };
-  }, []);
+  // Definição Estrita da Paleta de Lilás/Roxos da Imagem
+  const ROXO_DESTAQUE = "#a090c9";     // Lilás Principal / Místico
+  const ROXO_PROFUNDO = "#4c3e70";     // Roxo Escuro / Ameixa Nobre
+  const LILAS_SUAVE = "#f2effa";       // Fundo Lilás bem claro
+  const TEXTO_LILAS = "#61528a";       // Lilás intermediário
 
   const servicos = [
-    { id: 1, nome: "Nutrição", desc: "Planos alimentares personalizados.", icon: <Apple className="text-emerald-600" size={24} />, path: "/Nutricao" },
-    { id: 2, nome: "Acupuntura", desc: "Equilíbrio e alívio de dores.", icon: <PenLine className="text-emerald-600" size={24} />, path: "/Acupuntura" },
-    { id: 3, nome: "Farmácia", desc: "Orientação farmacêutica e fórmulas.", icon: <Thermometer className="text-emerald-600" size={24} />, path: "/Farmacia" },
+    {
+      id: 1,
+      nome: "Nutrição Clínica Integrativa",
+      descricao: "Planos alimentares personalizados com foco em longevidade, reequilíbrio metabólico e melhora da performance física e mental.",
+      icone: <Apple size={28} style={{ color: ROXO_PROFUNDO }} />,
+      duracao: "60 min",
+      preco: "R$ 180,00",
+      tag: "Mais Procurado"
+    },
+    {
+      id: 2,
+      nome: "Acupuntura Tradicional Chinesa",
+      descricao: "Tratamento focado no alívio de dores crónicas, redução drástica de ansiedade, regulação do sono e equilíbrio energético do corpo.",
+      icone: <Sparkles size={28} style={{ color: ROXO_PROFUNDO }} />,
+      duracao: "50 min",
+      preco: "R$ 150,00",
+      tag: "Equilíbrio"
+    },
+    {
+      id: 3,
+      nome: "Farmácia Clínica & Fitoterapia",
+      descricao: "Análise minuciosa de interações medicamentosas, prescrição personalizada de fitoterápicos e suplementos de alta performance.",
+      icone: <Activity size={28} style={{ color: ROXO_PROFUNDO }} />,
+      duracao: "45 min",
+      preco: "R$ 160,00",
+      tag: "Saúde Integral"
+    }
   ];
 
   return (
-    <div className="fixed inset-0 h-screen w-full bg-gray-50 font-sans flex flex-col">
-      {menuAberto && (
-        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setMenuAberto(false)} />
-      )}
-
-      <header className="bg-[#059669] text-white p-4 flex justify-between items-center shadow-md z-50 shrink-0">
-        <div className="flex items-center gap-4">
-          <button onClick={() => { if (window.innerWidth < 1024) setMenuAberto(true); }} className="bg-white text-[#059669] font-bold rounded-full w-10 h-10 flex items-center justify-center shadow-md shrink-0 lg:cursor-default">MB</button>
-          <div className="flex items-center gap-6">
-            <div>
-              <h1 className="font-bold text-sm leading-none uppercase tracking-tight">Manuela Bernardo</h1>
-              <p className="text-[10px] uppercase opacity-90 tracking-tighter">Nutrição • Acupuntura • Farmácia</p>
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800 antialiased">
+      {/* NAVBAR */}
+      <header className="bg-white border-b border-slate-100 px-4 lg:px-8 py-4 sticky top-0 z-40 flex justify-between items-center shadow-xs">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setMenuAberto(true)} className="lg:hidden p-1 text-slate-600 hover:text-slate-900">
+            <Menu size={24} />
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: LILAS_SUAVE }}>
+              <Sparkles size={18} style={{ color: TEXTO_LILAS }} />
             </div>
-            <nav className="hidden lg:flex items-center gap-1 ml-4 border-l border-emerald-400/30 pl-6">
-              <button onClick={() => navigate("/dashboard")} className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${isAtivo("/dashboard") ? "bg-emerald-700/50" : "hover:bg-emerald-700/30"}`}><Activity size={14} /> Serviços</button>
-              <button onClick={() => navigate("/agendamento")} className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${isAtivo("/agendamento") ? "bg-emerald-700/50" : "hover:bg-emerald-700/30"}`}><PlusCircle size={14} /> Agendar Horário</button>
-              <button onClick={() => navigate("/meus-dados")} className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${isAtivo("/meus-dados") ? "bg-emerald-700/50" : "hover:bg-emerald-700/30"}`}><ClipboardList size={14} /> Meus Dados</button>
-              <button onClick={() => navigate("/contatos")} className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${isAtivo("/contatos") ? "bg-emerald-700/50" : "hover:bg-emerald-700/30"}`}><PhoneCall size={14} /> Contatos</button>
-            </nav>
+            <span className="text-base font-black tracking-tight text-slate-900">
+              Espaço <span style={{ color: ROXO_PROFUNDO }}>Vitalidade</span>
+            </span>
           </div>
         </div>
+
+        {/* Menu Desktop */}
+        <nav className="hidden lg:flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/50">
+          <button onClick={() => navigate("/dashboard")} className="px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all" style={{ backgroundColor: ROXO_PROFUNDO, color: "white" }}>Serviços</button>
+          <button onClick={() => navigate("/agendamento")} className="px-4 py-2 rounded-lg font-bold text-xs text-slate-600 uppercase tracking-wider transition-all hover:bg-white">Agendar</button>
+          <button onClick={() => navigate("/meus-dados")} className="px-4 py-2 rounded-lg font-bold text-xs text-slate-600 uppercase tracking-wider transition-all hover:bg-white">Meus Dados</button>
+        </nav>
+
+        {/* Perfil do Usuário */}
         <div className="relative">
-          <button onClick={() => setPerfilAberto(!perfilAberto)} className="flex items-center gap-2 bg-emerald-700/50 px-3 py-2 rounded-xl hover:bg-emerald-700/70 transition-all"><User size={16} /><span className="text-xs font-bold">{nomeUsuario}</span><ChevronDown size={14} className={perfilAberto ? "rotate-180" : ""} /></button>
-          {perfilAberto && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50">
-              <button onClick={() => navigate("/perfil")} className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-emerald-50 flex items-center gap-2"><Settings size={16} className="text-emerald-600" /> Dados da Conta</button>
-              <button onClick={() => auth.signOut()} className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 font-bold border-t border-gray-50"><LogOut size={16} /> Sair</button>
+          <button onClick={() => setPerfilAberto(!perfilAberto)} className="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded-xl transition-all border border-transparent hover:border-slate-200">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs uppercase" style={{ backgroundColor: LILAS_SUAVE, color: TEXTO_LILAS }}>
+              {nomeUsuario.slice(0, 2)}
             </div>
+            <span className="hidden sm:inline font-bold text-xs text-slate-700">Olá, {nomeUsuario}</span>
+          </button>
+
+          {perfilAberto && (
+            <>
+              <div onClick={() => setPerfilAberto(false)} className="fixed inset-0 z-40" />
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-100 rounded-xl shadow-xl py-2 z-50 animate-scale-up">
+                <div className="px-4 py-2 border-b border-slate-50 mb-1">
+                  <p className="font-black text-slate-900 text-xs truncate">{nomeCompleto}</p>
+                  <p className="text-[10px] text-slate-400 truncate">{auth.currentUser?.email}</p>
+                </div>
+                <button onClick={() => { auth.signOut(); navigate("/login"); }} className="w-full px-4 py-2.5 text-left text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2 transition">
+                  <LogOut size={14} /> Sair do Painel
+                </button>
+              </div>
+            </>
           )}
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-4 lg:p-10 flex flex-col items-center">
-        <div className="w-full max-w-[1000px] h-full lg:h-auto flex flex-col lg:block">
-          <h2 className="text-xl lg:text-3xl font-bold text-[#064e3b] mb-4 lg:mb-10 text-left lg:text-center w-full shrink-0">Nossos Serviços</h2>
-          <div className="flex-1 lg:flex-none flex flex-col lg:grid lg:grid-cols-3 gap-3 lg:gap-8 w-full mb-6 lg:mb-12">
-            {servicos.map((s) => (
-              <div key={s.id} onClick={() => navigate(s.path)} className="flex-1 lg:flex-none bg-white p-5 lg:p-8 rounded-[25px] lg:rounded-[40px] border-2 border-emerald-100 shadow-sm flex flex-row lg:flex-col items-center lg:text-center gap-4 lg:gap-6 hover:shadow-md transition-all">
-                <div className="bg-emerald-50 w-12 h-12 lg:w-20 lg:h-20 rounded-2xl lg:rounded-[25px] flex items-center justify-center shrink-0 lg:mx-auto">{s.icon}</div>
-                <div className="flex flex-col lg:items-center"><h3 className="font-bold text-base lg:text-2xl text-gray-800">{s.nome}</h3><p className="text-gray-500 text-[11px] lg:text-sm">{s.desc}</p></div>
+      {/* SIDEBAR MOBILE */}
+      {menuAberto && (
+        <>
+          <div onClick={() => setMenuAberto(false)} className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 lg:hidden" />
+          <aside className="fixed inset-y-0 left-0 w-72 bg-white z-50 flex flex-col justify-between shadow-2xl p-4 lg:hidden animate-fade-in">
+            <div className="space-y-6">
+              <div className="flex justify-between items-center border-b border-slate-50 pb-3">
+                <span className="font-black text-xs uppercase tracking-wider text-slate-400">Menu Principal</span>
+                <button onClick={() => setMenuAberto(false)} className="p-1 text-slate-400 hover:text-slate-700"><X size={22} /></button>
+              </div>
+              <nav className="space-y-1.5">
+                <button onClick={() => { navigate("/dashboard"); setMenuAberto(false); }} className="w-full p-3.5 rounded-xl text-left font-black text-xs uppercase tracking-wider flex items-center gap-3 transition-all" style={{ backgroundColor: LILAS_SUAVE, color: TEXTO_LILAS }}><Sparkles size={16} /> Nossos Serviços</button>
+                <button onClick={() => { navigate("/agendamento"); setMenuAberto(false); }} className="w-full p-3.5 rounded-xl text-left font-bold text-xs uppercase tracking-wider flex items-center gap-3 text-slate-600 hover:bg-slate-50 transition-all"><PlusCircle size={16} /> Agendar Consulta</button>
+                <button onClick={() => { navigate("/meus-dados"); setMenuAberto(false); }} className="w-full p-3.5 rounded-xl text-left font-bold text-xs uppercase tracking-wider flex items-center gap-3 text-slate-600 hover:bg-slate-50 transition-all"><ClipboardList size={16} /> Meus Dados & Histórico</button>
+              </nav>
+            </div>
+            <div className="border-t border-slate-100 pt-4">
+              <button onClick={() => { auth.signOut(); navigate("/login"); }} className="w-full p-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition"><LogOut size={15} /> Sair da Conta</button>
+            </div>
+          </aside>
+        </>
+      )}
+
+      {/* CONTEÚDO PRINCIPAL (LANDING DE SERVIÇOS) */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-8 space-y-8 lg:space-y-12">
+        
+        {/* HERO SECTION */}
+        <section className="relative overflow-hidden rounded-3xl p-6 lg:p-12 border border-slate-100 shadow-xs flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6" style={{ background: `linear-gradient(135deg, ${ROXO_PROFUNDO} 0%, #32254f 100%)` }}>
+          <div className="space-y-3 lg:space-y-4 max-w-2xl text-white">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-white/90" style={{ backgroundColor: "rgba(255,255,255,0.12)" }}>
+              <ShieldCheck size={12} style={{ color: ROXO_DESTAQUE }} /> Atendimento Profissional Certificado
+            </span>
+            <h2 className="text-2xl lg:text-4xl font-black tracking-tight leading-tight">
+              Cuidado integral e exclusivo para a sua saúde e bem-estar.
+            </h2>
+            <p className="text-slate-300 text-xs lg:text-sm font-medium leading-relaxed">
+              Selecione abaixo a especialidade desejada para explorar os tratamentos disponíveis e reservar o seu horário com total comodidade em nossa plataforma.
+            </p>
+          </div>
+          <button onClick={() => navigate("/agendamento")} className="w-full lg:w-auto px-6 py-4 bg-white text-slate-900 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2">
+            Agendar Agora <ChevronRight size={16} style={{ color: TEXTO_LILAS }} />
+          </button>
+        </section>
+
+        {/* SECTION SELECTION (SERVIÇOS CHAMATIVOS) */}
+        <section className="space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-2 border-b border-slate-200/60 pb-4">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: TEXTO_LILAS }}>Especialidades Disponíveis</p>
+              <h3 className="text-xl lg:text-2xl font-black text-slate-900 tracking-tight mt-0.5">Explore Nossos Serviços</h3>
+            </div>
+            <p className="text-xs text-slate-400 font-medium">Todos os tratamentos incluem avaliação inicial completa.</p>
+          </div>
+
+          {/* GRID DE SERVIÇOS */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {servicos.map((serv) => (
+              <div 
+                key={serv.id} 
+                className="bg-white rounded-2xl border border-slate-100 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between overflow-hidden group hover:-translate-y-1 relative"
+              >
+                {/* Badge Superior */}
+                <div className="absolute top-4 right-4">
+                  <span className="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md" style={{ backgroundColor: LILAS_SUAVE, color: TEXTO_LILAS }}>
+                    {serv.tag}
+                  </span>
+                </div>
+
+                <div className="p-5 lg:p-6 space-y-4">
+                  {/* Ícone */}
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 duration-300" style={{ backgroundColor: LILAS_SUAVE }}>
+                    {serv.icone}
+                  </div>
+
+                  {/* Textos */}
+                  <div className="space-y-1.5">
+                    <h4 className="font-black text-base text-slate-900 tracking-tight leading-snug group-hover:text-slate-800 transition">
+                      {serv.nome}
+                    </h4>
+                    <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                      {serv.descricao}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Detalhes de Rodapé e Ação */}
+                <div className="px-5 lg:px-6 pb-5 pt-3 border-t border-slate-50 bg-slate-50/50 flex flex-col gap-3">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-400 font-bold flex items-center gap-1">Dur.: <strong className="text-slate-600 font-extrabold">{serv.duracao}</strong></span>
+                    <span className="font-black text-base" style={{ color: ROXO_PROFUNDO }}>{serv.preco}</span>
+                  </div>
+                  <button 
+                    onClick={() => navigate("/agendamento")}
+                    className="w-full py-3 bg-white hover:text-white border border-slate-200 font-black text-[10px] uppercase tracking-wider rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 group-hover:border-transparent"
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = ROXO_PROFUNDO; e.currentTarget.style.color = "white"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "white"; e.currentTarget.style.color = "inherit"; e.currentTarget.style.borderColor = "#e2e8f0"; }}
+                  >
+                    Agendar Esta Especialidade
+                  </button>
+                </div>
               </div>
             ))}
           </div>
-          <button onClick={() => navigate("/agendamento")} className="w-full lg:max-w-[320px] py-4 lg:py-5 bg-[#059669] text-white rounded-2xl lg:rounded-3xl font-bold text-lg shadow-lg active:scale-95 transition-all lg:mx-auto block shrink-0">Agendar agora</button>
-        </div>
-      </main>
+        </section>
 
-      <aside className={`lg:hidden fixed top-0 left-0 h-full w-64 bg-white z-[60] shadow-2xl transform transition-transform duration-300 ${menuAberto ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className="p-6 border-b bg-[#059669] text-white flex justify-between items-center"><span className="font-bold uppercase text-xs tracking-widest">Menu Principal</span><button onClick={() => setMenuAberto(false)}><X size={24} /></button></div>
-        <nav className="p-4 flex flex-col gap-2">
-          <button onClick={() => { navigate("/dashboard"); setMenuAberto(false); }} className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 ${isAtivo("/dashboard") ? "bg-emerald-50 text-emerald-700" : "text-gray-600"}`}><Activity size={18} /> Serviços</button>
-          <button onClick={() => { navigate("/agendamento"); setMenuAberto(false); }} className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 ${isAtivo("/agendamento") ? "bg-emerald-50 text-emerald-700" : "text-gray-600"}`}><PlusCircle size={18} /> Agendar Horário</button>
-          <button onClick={() => { navigate("/meus-dados"); setMenuAberto(false); }} className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 ${isAtivo("/meus-dados") ? "bg-emerald-50 text-emerald-700" : "text-gray-600"}`}><ClipboardList size={18} /> Meus Dados</button>
-          <button onClick={() => { navigate("/contatos"); setMenuAberto(false); }} className={`p-4 rounded-xl text-left font-bold flex items-center gap-3 ${isAtivo("/contatos") ? "bg-emerald-50 text-emerald-700" : "text-gray-600"}`}><PhoneCall size={18} /> Contatos</button>
-        </nav>
-      </aside>
+        {/* FAQ OU INFO ADICIONAL */}
+        <footer className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-5 lg:p-6 rounded-2xl border border-slate-100 shadow-xs">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-slate-100 rounded-lg mt-0.5 text-slate-500"><PhoneCall size={16} /></div>
+            <div>
+              <h5 className="font-black text-xs text-slate-900 tracking-tight">Precisa de suporte personalizado?</h5>
+              <p className="text-[11px] text-slate-400 font-medium mt-0.5">Entre em contacto direto pelo nosso WhatsApp para tirar dúvidas sobre indicações ou tratamentos.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 md:border-l md:border-slate-100 md:pl-6">
+            <div className="p-2 bg-slate-100 rounded-lg mt-0.5 text-slate-500"><HelpCircle size={16} /></div>
+            <div>
+              <h5 className="font-black text-xs text-slate-900 tracking-tight">Como funcionam os retornos?</h5>
+              <p className="text-[11px] text-slate-400 font-medium mt-0.5">Poderá consultar a validade e a necessidade de agendamento de retornos na secção "Meus Dados" após a primeira consulta.</p>
+            </div>
+          </div>
+        </footer>
+      </main>
     </div>
   );
 };
