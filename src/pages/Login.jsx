@@ -86,7 +86,7 @@ const Login = () => {
 
           {/* Quadrado Verde que sobrepõe o card */}
           <div style={{
-            backgroundColor: "#342a4c",
+            backgroundColor: "#a090c9",
             width: "80%",              /* Aumentado levemente para respirar melhor nas laterais */
             height: "135px",
             display: "flex",
@@ -259,7 +259,7 @@ const Login = () => {
                 <button type="button" onClick={() => { setModoAdmin(false); setErro(""); setSenhaAdmin(""); }}
                   style={{
                     background: "none", border: "none", cursor: "pointer",
-                    color: "#a1a1aa", fontSize: "11px", fontWeight: 700,
+                    color: "#342a4d", fontSize: "11px", fontWeight: 700,
                     textTransform: "uppercase", letterSpacing: "0.1em",
                     textAlign: "center", marginTop: "0.8rem",
                   }}>

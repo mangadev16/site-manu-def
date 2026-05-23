@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { db, auth } from "../firebase";
 import { collection, onSnapshot, doc, updateDoc, arrayUnion } from "firebase/firestore";
 import { 
-  User, LogOut, Calendar as CalendarIcon, Clock, X, Apple, Thermometer, Milestone,
-  ChevronLeft, ChevronRight, RotateCcw, MessageCircle, ChevronRight as ChevronIcon,
-  Users, BarChart3, CheckCircle2, AlertCircle, Trash2, LayoutDashboard, Menu, Search, Filter, ArrowUpDown, History, ChevronDown, Mail
+  LogOut, Calendar as CalendarIcon, Clock, X, ChevronLeft, ChevronRight, RotateCcw, 
+  MessageCircle, ChevronRight as ChevronIcon, Users, BarChart3, CheckCircle2, 
+  AlertCircle, LayoutDashboard, Menu, Search, Filter, ArrowUpDown, History, ChevronDown, Mail
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -18,698 +18,474 @@ const formatarData = (data) => {
 const Adm = () => {
   const navigate = useNavigate();
 
+  // Paleta Exclusiva de Lilás e Roxos da sua Imagem
+  const ROXO_DESTAQUE = "#a090c9";     // Lilás Principal / Místico
+  const ROXO_PROFUNDO = "#4c3e70";     // Roxo Escuro / Ameixa Nobre
+  const LILAS_SUAVE = "#f2effa";       // Fundo Lilás bem claro (substituindo o bege)
+  const TEXTO_LILAS = "#61528a";       // Lilás intermediário para badges e textos secundários
+
   const [telaAtiva, setTelaAtiva] = useState("agenda"); 
   const [menuAberto, setMenuAberto] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState("Nutrição");
   const [todosAgendamentos, setTodosAgendamentos] = useState([]);
   const [clientesTodos, setClientesTodos] = useState([]);
   const [dataFiltro, setDataFiltro] = useState(new Date()); 
-  const [buscaCliente, setBuscaCliente] = useState("");
-  const [filtrosAtivos, setFiltrosAtivos] = useState([]); 
-  const [ordemClientes, setOrdemClientes] = useState("alfabetica");
-  const [filtroMenuAberto, setFiltroMenuAberto] = useState(false);
-  const [agendamentoSelecionado, setAgendamentoSelecionado] = useState(null);
+  const [busca, setBusca] = useState("");
+  const [statusFiltro, setStatusFiltro] = useState("todos");
+  const [clienteSelecionado, setClienteSelecionado] = useState(null);
   const [clienteFicha, setClienteFicha] = useState(null);
-  const [carregando, setCarregando] = useState(true);
-  const [erro, setErro] = useState(null);
-  const [modalRelatorioAberto, setModalRelatorioAberto] = useState(null);
-  
-  const inputAgendaRef = useRef(null);
-  const inputRelatoriosRef = useRef(null);
+  const [modalNovoHistorico, setModalNovoHistorico] = useState(false);
+  const [novoServico, setNovoServico] = useState("");
+  const [novoValor, setNovoValor] = useState("");
+  const [ordenacao, setOrdenacao] = useState("nome"); 
 
-  const servicosConfig = {
-    "Nutrição": { icon: <Apple size={16} />, color: "text-orange-500" },
-    "Acupuntura": { icon: <Milestone size={16} />, color: "text-indigo-500" },
-    "Farmácia": { icon: <Thermometer size={16} />, color: "text-rose-500" }
-  };
-
-  const ordemStatus = {
-    "pendente": 0,
-    "concluido": 1,
-    "faltou": 1,
-    "cancelado": 1
-  };
-
-  const buscarDadosCliente = (userId) => {
-    const cliente = clientesTodos.find(c => c.id === userId);
-    return cliente || { nome: "Carregando...", email: "", telefone: "" };
-  };
-
-  const lidarSair = async () => {
-    try {
-      await auth.signOut();
-      navigate("/"); 
-    } catch (error) {
-      console.error("Erro ao sair:", error);
-    }
-  };
-
-  const podeAlterarStatus = (statusAtual) => {
-    return statusAtual === "pendente";
+  const lidarComLogout = () => {
+    auth.signOut();
+    navigate("/login");
   };
 
   useEffect(() => {
-    console.log("Iniciando carregamento de agendamentos...");
-    setCarregando(true);
-    
-    const unsubscribe = onSnapshot(
-      collection(db, "agendamentos"),
-      (snapshot) => {
-        const agendamentos = snapshot.docs.map(doc => {
-          const dados = doc.data();
-          return {
-            id: doc.id,
-            ...dados,
-            servico: dados.servico || dados.servicio || dados.serviço || "Não identificado",
-            status: dados.status || "pendente"
-          };
-        });
-        
-        const agendamentosOrdenados = [...agendamentos].sort((a, b) => {
-          if (ordemStatus[a.status] !== ordemStatus[b.status]) {
-            return ordemStatus[a.status] - ordemStatus[b.status];
-          }
-          return (a.horario || "00:00").localeCompare(b.horario || "00:00");
-        });
-        
-        console.log("Agendamentos carregados:", agendamentosOrdenados.length);
-        setTodosAgendamentos(agendamentosOrdenados);
-        setCarregando(false);
-        setErro(null);
-      },
-      (error) => {
-        console.error("Erro ao carregar agendamentos:", error);
-        setErro(error.message);
-        setCarregando(false);
-      }
-    );
-    
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    console.log("Carregando clientes...");
-    
-    const unsubscribe = onSnapshot(
-      collection(db, "usuarios"),
-      (snapshot) => {
-        const clientes = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          totalGeral: doc.data().historico?.length || 0
-        }));
-        setClientesTodos(clientes);
-      },
-      (error) => {
-        console.error("Erro ao carregar clientes:", error);
-      }
-    );
-    
-    return () => unsubscribe();
-  }, []);
-
-  const dataFormatada = dataFiltro.toLocaleDateString('pt-BR');
-  const hojeFormatado = new Date().toLocaleDateString('pt-BR');
-  
-  const agendamentosDoDia = todosAgendamentos
-    .filter(ag => ag.data === dataFormatada)
-    .sort((a, b) => {
-      if (a.status === "pendente" && b.status !== "pendente") return -1;
-      if (a.status !== "pendente" && b.status === "pendente") return 1;
-      return (a.horario || "00:00").localeCompare(b.horario || "00:00");
-    });
-  
-  const historicoDoDia = clientesTodos.flatMap(c => c.historico || []).filter(h => h.dataConclusao === dataFormatada);
-  
-  const relatorios = [
-    { label: "Concluídos", status: "concluido", icon: <CheckCircle2 />, bg: "bg-[#1e293b]", text: "text-white", count: historicoDoDia.filter(h => h.status === "concluido").length },
-    { label: "Faltas", status: "faltou", icon: <AlertCircle />, bg: "bg-white", text: "text-slate-800", count: historicoDoDia.filter(h => h.status === "faltou").length },
-    { label: "Cancelados", status: "cancelado", icon: <Trash2 />, bg: "bg-white", text: "text-slate-800", count: historicoDoDia.filter(h => h.status === "cancelado").length },
-  ];
-
-  const abrirModalRelatorio = (status) => {
-    const clientesComStatus = historicoDoDia.filter(h => h.status === status).map(h => {
-      const cliente = clientesTodos.find(c => c.id === h.userId);
-      return {
-        ...h,
-        clienteNome: cliente?.nome || "Cliente não encontrado",
-        clienteTelefone: cliente?.telefone || "Não informado",
-        clienteEmail: cliente?.email || "Não informado"
-      };
-    });
-    setModalRelatorioAberto({ status, clientes: clientesComStatus });
-  };
-
-  const mudarDia = (dias) => {
-    const novaData = new Date(dataFiltro);
-    novaData.setDate(novaData.getDate() + dias);
-    setDataFiltro(novaData);
-  };
-
-  const abrirCalendario = (ref) => {
-    if (ref.current && typeof ref.current.showPicker === 'function') {
-      ref.current.showPicker();
-    }
-  };
-
-  const adicionarFiltro = (servico) => {
-    if (!filtrosAtivos.includes(servico)) {
-      setFiltrosAtivos([...filtrosAtivos, servico]);
-    }
-    setFiltroMenuAberto(false);
-  };
-
-  const removerFiltro = (servico) => {
-    setFiltrosAtivos(filtrosAtivos.filter(f => f !== servico));
-  };
-
-  const clientesFiltrados = clientesTodos
-    .filter(c => {
-      const bateTexto = buscaCliente === "" || 
-        c.nome?.toLowerCase().includes(buscaCliente.toLowerCase()) || 
-        c.telefone?.includes(buscaCliente) || 
-        c.email?.toLowerCase().includes(buscaCliente.toLowerCase());
-      
-      if (!bateTexto) return false;
-      if (filtrosAtivos.length === 0) return true;
-      
-      return filtrosAtivos.some(f => 
-        todosAgendamentos.some(ag => ag.userId === c.id && ag.servico === f) || 
-        (c.historico && c.historico.some(h => h.servico === f))
-      );
-    })
-    .sort((a, b) => {
-      if (ordemClientes === "alfabetica") {
-        return (a.nome || "").localeCompare(b.nome || "");
-      }
-      return (b.totalGeral || 0) - (a.totalGeral || 0);
-    });
-
-  const atualizarStatus = async (ag, novoStatus) => {
-    if (!podeAlterarStatus(ag.status)) {
-      alert(`Este agendamento já foi ${ag.status === "concluido" ? "concluído" : ag.status === "faltou" ? "marcado como falta" : "cancelado"} e não pode mais ser alterado.`);
-      setAgendamentoSelecionado(null);
-      return;
-    }
-    
-    try {
-      const agRef = doc(db, "agendamentos", ag.id);
-      const clienteRef = doc(db, "usuarios", ag.userId);
-      
-      await updateDoc(agRef, { status: novoStatus });
-      
-      const itemHistorico = { 
-        servico: ag.servico,
-        data: ag.data,
-        horario: ag.horario,
-        status: novoStatus, 
-        dataConclusao: formatarData(new Date()),
-        userId: ag.userId
-      };
-      
-      await updateDoc(clienteRef, {
-        historico: arrayUnion(itemHistorico)
+    const unsub = onSnapshot(collection(db, "usuarios"), (snapshot) => {
+      const lista = [];
+      snapshot.forEach((doc) => {
+        lista.push({ id: doc.id, ...doc.data() });
       });
-      
-      setAgendamentoSelecionado(null);
-      alert(`Agendamento ${novoStatus === "concluido" ? "concluído" : novoStatus === "faltou" ? "marcado como falta" : "cancelado"} com sucesso!`);
-    } catch (e) {
-      console.error("Erro crítico:", e);
-      alert("Erro ao salvar. Verifique o console.");
+      setClientesTodos(lista);
+
+      const agendamentosAcumulados = [];
+      lista.forEach((c) => {
+        if (c.agendamentos && Array.isArray(c.agendamentos)) {
+          c.agendamentos.forEach((ag) => {
+            agendamentosAcumulados.push({
+              ...ag,
+              clienteId: c.id,
+              clienteNome: c.nome,
+              clienteTelefone: c.telefone,
+              clienteEmail: c.email,
+            });
+          });
+        }
+      });
+
+      agendamentosAcumulados.sort((a, b) => {
+        if (a.data !== b.data) {
+          const [diaA, mesA, anoA] = a.data.split("/");
+          const [diaB, mesB, anoB] = b.data.split("/");
+          return new Date(anoA, mesA - 1, diaA) - new Date(anoB, mesB - 1, diaB);
+        }
+        return a.horario.localeCompare(b.horario);
+      });
+
+      setTodosAgendamentos(agendamentosAcumulados);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (clienteSelecionado) {
+      const cAtualizado = clientesTodos.find((c) => c.id === clienteSelecionado.id);
+      if (cAtualizado) {
+        const total = cAtualizado.historico?.reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0) || 0;
+        setClienteFicha({ ...cAtualizado, totalGeral: total });
+      }
+    }
+  }, [clientesTodos, clienteSelecionado]);
+
+  const alterarStatusAgendamento = async (ag, novoStatus) => {
+    try {
+      const cRef = doc(db, "usuarios", ag.clienteId);
+      const cData = clientesTodos.find((c) => c.id === ag.clienteId);
+      if (!cData) return;
+
+      const agendamentosAtualizados = cData.agendamentos.map((item) => {
+        if (item.data === ag.data && item.horario === ag.horario && item.servico === ag.servico) {
+          return { ...item, status: novoStatus };
+        }
+        return item;
+      });
+
+      if (novoStatus === "concluido") {
+        const historicoAdicional = {
+          servico: ag.servico,
+          data: ag.data,
+          horario: ag.horario,
+          valor: ag.valor || 0,
+          status: "concluido",
+        };
+        await updateDoc(cRef, {
+          agendamentos: agendamentosAtualizados,
+          historico: arrayUnion(historicoAdicional),
+        });
+      } else {
+        await updateDoc(cRef, { agendamentos: agendamentosAtualizados });
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  const SeletorData = ({ inputRef }) => (
-    <div className="flex items-center gap-3">
-      <div className="flex items-center gap-4 bg-white p-2 rounded-2xl shadow-sm border">
-        <button onClick={() => mudarDia(-1)} className="p-2 text-slate-400 hover:text-emerald-600">
-          <ChevronLeft size={18}/>
-        </button>
-        <div onClick={() => abrirCalendario(inputRef)} className="flex items-center gap-3 px-4 py-1 cursor-pointer group">
-          <CalendarIcon size={18} className="text-emerald-500 group-hover:scale-110 transition-transform"/>
-          <span className="font-black text-slate-700 text-sm">{dataFormatada}</span>
-          <input 
-            ref={inputRef} 
-            type="date" 
-            className="absolute w-0 h-0 opacity-0" 
-            onChange={(e) => {
-              if (e.target.value) {
-                const [ano, mes, dia] = e.target.value.split('-');
-                setDataFiltro(new Date(ano, mes - 1, dia));
-              }
-            }}
-          />
-        </div>
-        <button onClick={() => mudarDia(1)} className="p-2 text-slate-400 hover:text-emerald-600">
-          <ChevronRight size={18}/>
-        </button>
-      </div>
-      
-      {dataFormatada !== hojeFormatado && (
-        <button 
-          onClick={() => setDataFiltro(new Date())} 
-          className="p-3 bg-emerald-100 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm border border-emerald-200"
-          title="Voltar para hoje"
-        >
-          <RotateCcw size={18} />
-        </button>
-      )}
-    </div>
-  );
+  const adicionarAoHistoricoManual = async (e) => {
+    e.preventDefault();
+    if (!novoServico || !novoValor) return;
+    try {
+      const cRef = doc(db, "usuarios", clienteFicha.id);
+      const novoItem = {
+        servico: novoServico,
+        valor: Number(novoValor),
+        data: formatarData(new Date()),
+        horario: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+        status: "concluido",
+      };
+      await updateDoc(cRef, { historico: arrayUnion(novoItem) });
+      setNovoServico("");
+      setNovoValor("");
+      setModalNovoHistorico(false);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-  if (erro) {
-    return (
-      <div className="fixed inset-0 bg-[#f8fafc] flex items-center justify-center">
-        <div className="text-center p-8 bg-red-50 rounded-2xl max-w-md">
-          <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-red-700 mb-2">Erro de Conexão</h2>
-          <p className="text-red-600 mb-4">{erro}</p>
-          <button onClick={() => window.location.reload()} className="px-6 py-2 bg-red-600 text-white rounded-xl">Tentar Novamente</button>
-        </div>
-      </div>
-    );
-  }
+  const agendamentosFiltrados = todosAgendamentos.filter((ag) => {
+    const bateData = ag.data === formatarData(dataFiltro);
+    const bateStatus = statusFiltro === "todos" || ag.status === statusFiltro;
+    const bateBusca = busca === "" || ag.clienteNome.toLowerCase().includes(busca.toLowerCase());
+    return bateData && bateStatus && bateBusca;
+  });
 
-  if (carregando) {
-    return (
-      <div className="fixed inset-0 bg-[#f8fafc] flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-          <p className="text-slate-500">Carregando dados...</p>
-        </div>
-      </div>
-    );
-  }
+  const clientesFiltradosETordenados = clientesTodos
+    .filter((c) => busca === "" || c.nome.toLowerCase().includes(busca.toLowerCase()) || c.telefone.includes(busca))
+    .sort((a, b) => {
+      if (ordenacao === "nome") return a.nome.localeCompare(b.nome);
+      const totalA = a.historico?.reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0) || 0;
+      const totalB = b.historico?.reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0) || 0;
+      return totalB - totalA;
+    });
+
+  const faturamentoTotalPeriodo = agendamentosFiltrados
+    .filter((ag) => ag.status === "concluido")
+    .reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0);
+
+  const totalClientesAtendidosPeriodo = new Set(
+    agendamentosFiltrados.filter((ag) => ag.status === "concluido").map((ag) => ag.clienteId),
+  ).size;
 
   return (
-    <div className="fixed inset-0 h-screen w-full bg-[#f8fafc] flex flex-col lg:flex-row overflow-hidden text-slate-900 font-sans">
-      {/* SIDEBAR */}
-      <aside className={`fixed lg:static inset-y-0 left-0 w-72 bg-[#1e293b] text-white z-[100] transform transition-transform duration-300 ${menuAberto ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-        <div className="p-8 border-b border-white/10 flex items-center gap-3">
-          <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse" />
-          <h1 className="font-black text-xs uppercase tracking-widest text-emerald-400">Painel Administrativo</h1>
-        </div>
-        <nav className="p-6 space-y-3">
-          <button onClick={() => { setTelaAtiva("agenda"); setMenuAberto(false); }} className={`w-full flex items-center gap-4 p-4 rounded-2xl font-black text-[10px] transition-all ${telaAtiva === "agenda" ? "bg-emerald-600 text-white shadow-lg" : "text-slate-400 hover:bg-white/5"}`}>
-            <LayoutDashboard size={20} /> AGENDA
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
+      {/* HEADER */}
+      <header className="bg-white border-b border-slate-100 px-4 lg:px-6 py-4 sticky top-0 z-40 flex justify-between items-center shadow-xs">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setMenuAberto(!menuAberto)} className="lg:hidden text-slate-600 hover:text-slate-900 transition">
+            <Menu size={22} />
           </button>
-          <button onClick={() => { setTelaAtiva("clientes"); setMenuAberto(false); }} className={`w-full flex items-center gap-4 p-4 rounded-2xl font-black text-[10px] transition-all ${telaAtiva === "clientes" ? "bg-emerald-600 text-white shadow-lg" : "text-slate-400 hover:bg-white/5"}`}>
-            <Users size={20} /> CLIENTES
-          </button>
-          <button onClick={() => { setTelaAtiva("relatorios"); setMenuAberto(false); }} className={`w-full flex items-center gap-4 p-4 rounded-2xl font-black text-[10px] transition-all ${telaAtiva === "relatorios" ? "bg-emerald-600 text-white shadow-lg" : "text-slate-400 hover:bg-white/5"}`}>
-            <BarChart3 size={20} /> RELATÓRIOS
-          </button>
-          <div className="mt-10 pt-10 border-t border-white/10">
-            <button onClick={lidarSair} className="flex items-center gap-4 p-4 text-red-400 font-black text-[10px] hover:bg-red-400/10 w-full rounded-2xl transition-all">
-              <LogOut size={20} /> SAIR
-            </button>
+          <div className="flex items-center gap-2">
+            <LayoutDashboard size={20} style={{ color: ROXO_DESTAQUE }} />
+            <h1 className="text-base lg:text-xl font-black text-slate-900 tracking-tight">
+              Painel <span style={{ color: ROXO_DESTAQUE }}>Administrativo</span>
+            </h1>
           </div>
-        </nav>
-      </aside>
+        </div>
+        <button onClick={lidarComLogout} className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 font-bold text-xs transition-all shadow-xs">
+          <LogOut size={14} /> Sair
+        </button>
+      </header>
 
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
-        <header className="bg-white p-4 lg:p-6 border-b flex justify-between items-center z-50">
-          <button onClick={() => setMenuAberto(true)} className="lg:hidden p-2 text-slate-600"><Menu /></button>
-          <h2 className="font-black text-slate-800 uppercase tracking-tighter text-sm">
-            {telaAtiva === "agenda" ? "AGENDA DO DIA" : telaAtiva === "clientes" ? "CLIENTES" : "RELATÓRIOS"}
-          </h2>
-        </header>
+      <div className="flex flex-1 relative">
+        {/* SIDEBAR RESPONSIVO */}
+        <aside className={`w-64 bg-white border-r border-slate-100 p-4 flex flex-col gap-2 fixed lg:static inset-y-0 left-0 z-50 transform ${menuAberto ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} transition-transform duration-300 ease-in-out lg:h-[calc(100vh-73px)]`}>
+          <div className="lg:hidden flex justify-end mb-2">
+            <button onClick={() => setMenuAberto(false)} className="text-slate-400 hover:text-slate-700"><X size={22} /></button>
+          </div>
+          <button
+            onClick={() => { setTelaAtiva("agenda"); setMenuAberto(false); }}
+            className="flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all"
+            style={{
+              backgroundColor: telaAtiva === "agenda" ? ROXO_DESTAQUE : "transparent",
+              color: telaAtiva === "agenda" ? "white" : "#475569",
+              boxShadow: telaAtiva === "agenda" ? `0 8px 16px -4px rgba(160, 144, 201, 0.4)` : "none"
+            }}
+          >
+            <CalendarIcon size={16} /> Agenda de Consultas
+          </button>
+          <button
+            onClick={() => { setTelaAtiva("clientes"); setMenuAberto(false); }}
+            className="flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all"
+            style={{
+              backgroundColor: telaAtiva === "clientes" ? ROXO_DESTAQUE : "transparent",
+              color: telaAtiva === "clientes" ? "white" : "#475569",
+              boxShadow: telaAtiva === "clientes" ? `0 8px 16px -4px rgba(160, 144, 201, 0.4)` : "none"
+            }}
+          >
+            <Users size={16} /> Banco de Clientes
+          </button>
+          <button
+            onClick={() => { setTelaAtiva("metricas"); setMenuAberto(false); }}
+            className="flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all"
+            style={{
+              backgroundColor: telaAtiva === "metricas" ? ROXO_DESTAQUE : "transparent",
+              color: telaAtiva === "metricas" ? "white" : "#475569",
+              boxShadow: telaAtiva === "metricas" ? `0 8px 16px -4px rgba(160, 144, 201, 0.4)` : "none"
+            }}
+          >
+            <BarChart3 size={16} /> Métricas & Faturamento
+          </button>
+        </aside>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-10 pb-32">
-          {/* TELA DE RELATÓRIOS */}
-          {telaAtiva === "relatorios" && (
-            <div className="max-w-4xl mx-auto space-y-10">
-              <div className="flex justify-center">
-                <SeletorData inputRef={inputRelatoriosRef} />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {relatorios.map((item) => (
-                  <div 
-                    key={item.label} 
-                    onClick={() => abrirModalRelatorio(item.status)}
-                    className={`${item.bg} ${item.text} p-10 rounded-[45px] shadow-sm flex flex-col items-center border border-slate-100 cursor-pointer hover:scale-105 transition-transform duration-200`}
-                  >
-                    <div className="mb-4 text-emerald-500">{item.icon}</div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50 mb-2">{item.label}</p>
-                    <h3 className="text-5xl font-black">{item.count}</h3>
-                    <p className="text-[8px] mt-2 opacity-50">Clique para ver detalhes</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+        {menuAberto && <div onClick={() => setMenuAberto(false)} className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 lg:hidden" />}
 
-          {/* TELA DE CLIENTES - COM CABEÇALHO FIXO */}
-          {telaAtiva === "clientes" && (
-            <div className="max-w-4xl mx-auto">
-              {/* CABEÇALHO FIXO */}
-              <div className="sticky top-0 z-10 bg-[#f8fafc] pb-4 space-y-4">
-                <div className="relative">
-                  <div className="flex flex-col md:flex-row gap-4">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                      <input 
-                        type="text" 
-                        placeholder="Pesquisar por nome, email ou telefone..." 
-                        className="w-full pl-16 pr-6 py-5 bg-white border border-slate-200 rounded-[25px] shadow-sm font-bold text-slate-700 outline-none focus:border-emerald-400" 
-                        value={buscaCliente} 
-                        onChange={(e) => setBuscaCliente(e.target.value)} 
-                      />
-                    </div>
-                    <button 
-                      onClick={() => setFiltroMenuAberto(!filtroMenuAberto)} 
-                      className={`flex items-center justify-center gap-3 px-8 py-5 rounded-[25px] font-black text-[11px] transition-all ${filtroMenuAberto ? "bg-slate-800 text-white shadow-xl" : "bg-white border border-slate-200 text-slate-600 shadow-sm"}`}
-                    >
-                      <Filter size={18} className="text-emerald-500" /> FILTROS
-                    </button>
-                  </div>
-
-                  {filtroMenuAberto && (
-                    <div className="absolute right-0 mt-4 w-72 bg-white border border-slate-100 rounded-[35px] shadow-2xl p-8 z-[60]">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Ordenar por</p>
-                      <div className="grid gap-2 mb-6">
-                        <button onClick={() => { setOrdemClientes("alfabetica"); setFiltroMenuAberto(false); }} className={`flex items-center gap-3 p-3 rounded-xl text-xs font-bold transition-all ${ordemClientes === "alfabetica" ? "bg-emerald-50 text-emerald-600" : "text-slate-500 hover:bg-slate-50"}`}>
-                          <ArrowUpDown size={16} /> Ordem Alfabética
-                        </button>
-                        <button onClick={() => { setOrdemClientes("mais_agendamentos"); setFiltroMenuAberto(false); }} className={`flex items-center gap-3 p-3 rounded-xl text-xs font-bold transition-all ${ordemClientes === "mais_agendamentos" ? "bg-emerald-50 text-emerald-600" : "text-slate-500 hover:bg-slate-50"}`}>
-                          <History size={16} /> Mais Visitas
-                        </button>
-                      </div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Filtrar por Serviço</p>
-                      <div className="grid gap-2">
-                        {Object.keys(servicosConfig).map((s) => (
-                          <button key={s} onClick={() => adicionarFiltro(s)} className="flex items-center justify-between p-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 transition-all">
-                            {s.toUpperCase()} <ChevronRight size={14} className="text-slate-300" />
-                          </button>
-                        ))}
-                        <button onClick={() => { setFiltrosAtivos([]); setFiltroMenuAberto(false); }} className="mt-2 text-[10px] font-black text-red-400 uppercase hover:underline">Limpar Tudo</button>
-                      </div>
-                    </div>
-                  )}
+        {/* CONTEÚDO PRINCIPAL */}
+        <main className="flex-1 p-3 lg:p-6 overflow-x-hidden max-w-full">
+          {telaAtiva === "agenda" && (
+            <div className="space-y-4 lg:space-y-6 animate-fade-in">
+              {/* FILTROS DE DATA E ABAS */}
+              <div className="bg-white p-3 lg:p-4 rounded-2xl border border-slate-100 shadow-xs flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
+                <div className="flex items-center justify-between md:justify-start gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
+                  <button onClick={() => { const d = new Date(dataFiltro); d.setDate(d.getDate() - 1); setDataFiltro(d); }} className="p-2 bg-white hover:bg-slate-50 rounded-lg transition text-slate-600 shadow-xs"><ChevronLeft size={16} /></button>
+                  <span className="font-black text-xs text-slate-800 min-w-[110px] text-center uppercase tracking-wider">{dataFiltro.toLocaleDateString("pt-BR", { weekday: 'short', day: '2-digit', month: 'short' })}</span>
+                  <button onClick={() => { const d = new Date(dataFiltro); d.setDate(d.getDate() + 1); setDataFiltro(d); }} className="p-2 bg-white hover:bg-slate-50 rounded-lg transition text-slate-600 shadow-xs"><ChevronRight size={16} /></button>
+                  <button onClick={() => setDataFiltro(new Date())} className="p-2 hover:bg-slate-100 rounded-lg transition text-slate-400" title="Hoje"><RotateCcw size={14} /></button>
                 </div>
 
-                <div className="flex flex-wrap gap-2 items-center">
-                  <span className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-full text-[9px] font-black shadow-sm">
-                    {ordemClientes === "alfabetica" ? <ArrowUpDown size={12} /> : <History size={12} />}
-                    {ordemClientes === "alfabetica" ? "A - Z" : "MAIS FREQUENTES"}
-                  </span>
-                  {filtrosAtivos.map((f) => (
-                    <span key={f} className="flex items-center gap-2 bg-emerald-500 text-white px-4 py-2 rounded-full text-[9px] font-black shadow-sm">
-                      {f.toUpperCase()}
-                      <button onClick={() => removerFiltro(f)} className="hover:bg-emerald-600 rounded-full p-0.5"><X size={12} /></button>
-                    </span>
+                <div className="grid grid-cols-3 gap-1.5 md:flex md:gap-2">
+                  {["Nutrição", "Farmácia", "Acupuntura"].map((serv) => (
+                    <button
+                      key={serv}
+                      onClick={() => setAbaAtiva(serv)}
+                      className="px-3 md:px-5 py-2.5 rounded-xl font-bold text-[11px] uppercase tracking-wider transition-all text-center"
+                      style={{
+                        backgroundColor: abaAtiva === serv ? ROXO_DESTAQUE : "white",
+                        color: abaAtiva === serv ? "white" : "#64748b",
+                        border: abaAtiva === serv ? "none" : "1px solid #e2e8f0",
+                        boxShadow: abaAtiva === serv ? `0 4px 10px rgba(160, 144, 201, 0.25)` : "none"
+                      }}
+                    >
+                      {serv}
+                    </button>
                   ))}
                 </div>
               </div>
 
-              {/* LISTA DE CLIENTES - ROLÁVEL */}
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 pt-2">
-                {clientesFiltrados.length === 0 ? (
-                  <div className="col-span-full text-center py-20 text-slate-400">Nenhum cliente encontrado</div>
-                ) : (
-                  clientesFiltrados.map((cliente) => (
-                    <div key={cliente.id} onClick={() => setClienteFicha(cliente)} className="bg-white p-7 rounded-[40px] border border-transparent hover:border-emerald-500 transition-all cursor-pointer shadow-sm group hover:shadow-md">
-                      <div className="flex justify-between items-start mb-5">
-                        <div className="h-10 w-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-600">
-                          <User size={20} />
+              {/* BARRA DE PESQUISA */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="relative md:col-span-2">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <input type="text" placeholder="Buscar cliente por nome..." value={busca} onChange={(e) => setBusca(e.target.value)} className="w-full bg-white pl-10 pr-4 py-3 rounded-xl border border-slate-200 outline-none text-xs transition focus:border-slate-400" />
+                </div>
+                <div className="relative">
+                  <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                  <select value={statusFiltro} onChange={(e) => setStatusFiltro(e.target.value)} className="w-full bg-white pl-9 pr-4 py-3 rounded-xl border border-slate-200 outline-none text-xs appearance-none cursor-pointer font-bold text-slate-600">
+                    <option value="todos">Todos Status</option>
+                    <option value="pendente">Pendentes</option>
+                    <option value="concluido">Concluídos</option>
+                    <option value="faltou">Faltas</option>
+                    <option value="cancelado">Cancelados</option>
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
+                </div>
+              </div>
+
+              {/* LISTAGEM RESPONSIVA */}
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
+                {/* Desktop (Tabela) */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/70 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                        <th className="py-4 px-6">Horário</th>
+                        <th className="py-4 px-6">Cliente</th>
+                        <th className="py-4 px-6">Serviço</th>
+                        <th className="py-4 px-6">Valor</th>
+                        <th className="py-4 px-6">Status</th>
+                        <th className="py-4 px-6 text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {agendamentosFiltrados.filter(ag => ag.servico === abaAtiva).length > 0 ? (
+                        agendamentosFiltrados.filter(ag => ag.servico === abaAtiva).map((ag, index) => (
+                          <tr key={index} className="hover:bg-slate-50/30 transition group text-xs">
+                            <td className="py-4 px-6 font-bold text-slate-700"><div className="flex items-center gap-1.5"><Clock size={14} className="text-slate-400" /> {ag.horario}</div></td>
+                            <td className="py-4 px-6"><p className="font-extrabold text-slate-800">{ag.clienteNome}</p><p className="text-[11px] text-slate-400 mt-0.5">{ag.clienteTelefone}</p></td>
+                            <td className="py-4 px-6"><span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-md text-[10px] font-bold">{ag.servico}</span></td>
+                            <td className="py-4 px-6 font-extrabold text-slate-700">R$ {ag.valor || 0}</td>
+                            <td className="py-4 px-6">
+                              <span className="text-[9px] font-black uppercase px-2.5 py-1.5 rounded-full" style={{ backgroundColor: ag.status === "concluido" ? LILAS_SUAVE : ag.status === "faltou" ? "#fef3c7" : ag.status === "cancelado" ? "#fee2e2" : "#dbeafe", color: ag.status === "concluido" ? TEXTO_LILAS : ag.status === "faltou" ? "#b45309" : ag.status === "cancelado" ? "#b91c1c" : "#1d4ed8" }}>
+                                {ag.status}
+                              </span>
+                            </td>
+                            <td className="py-4 px-6 text-right">
+                              {ag.status === "pendente" && (
+                                <div className="flex gap-1 justify-end opacity-90 lg:opacity-0 lg:group-hover:opacity-100 transition-all">
+                                  <button onClick={() => alterarStatusAgendamento(ag, "concluido")} className="p-2 rounded-lg transition hover:bg-slate-100 text-slate-700" title="Concluir"><CheckCircle2 size={15} style={{ color: ROXO_DESTAQUE }} /></button>
+                                  <button onClick={() => alterarStatusAgendamento(ag, "faltou")} className="p-2 rounded-lg transition hover:bg-amber-50 text-amber-600" title="Marcar Falta"><AlertCircle size={15} /></button>
+                                  <button onClick={() => alterarStatusAgendamento(ag, "cancelado")} className="p-2 rounded-lg transition hover:bg-red-50 text-red-600" title="Cancelar"><X size={15} /></button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr><td colSpan="6" className="py-12 text-center text-slate-400 font-medium"><CalendarIcon className="mx-auto mb-2 text-slate-300" size={28} /> Nenhum agendamento para hoje.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile (Cards Inteligentes de Alta Leitura) */}
+                <div className="block md:hidden divide-y divide-slate-100">
+                  {agendamentosFiltrados.filter(ag => ag.servico === abaAtiva).length > 0 ? (
+                    agendamentosFiltrados.filter(ag => ag.servico === abaAtiva).map((ag, index) => (
+                      <div key={index} className="p-4 space-y-3 bg-white">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-1.5 text-xs font-black text-slate-700">
+                            <Clock size={14} style={{ color: ROXO_DESTAQUE }} /> {ag.horario}
+                          </div>
+                          <span className="text-[9px] font-black uppercase px-2.5 py-1 rounded-full" style={{ backgroundColor: ag.status === "concluido" ? LILAS_SUAVE : ag.status === "faltou" ? "#fef3c7" : ag.status === "cancelado" ? "#fee2e2" : "#dbeafe", color: ag.status === "concluido" ? TEXTO_LILAS : ag.status === "faltou" ? "#b45309" : ag.status === "cancelado" ? "#b91c1c" : "#1d4ed8" }}>
+                            {ag.status}
+                          </span>
                         </div>
-                        <span className="bg-slate-100 text-slate-500 text-[9px] font-black px-3 py-1 rounded-lg uppercase">
-                          {cliente.totalGeral} {cliente.totalGeral === 1 ? "VISITA" : "VISITAS"}
-                        </span>
+                        <div>
+                          <p className="font-black text-slate-900 text-sm">{ag.clienteNome}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">{ag.clienteTelefone}</p>
+                        </div>
+                        <div className="flex justify-between items-center pt-3 border-t border-slate-100">
+                          <span className="text-xs font-black text-slate-800">R$ {ag.valor || 0}</span>
+                          {ag.status === "pendente" && (
+                            <div className="flex gap-1.5">
+                              <button onClick={() => alterarStatusAgendamento(ag, "concluido")} className="flex items-center gap-1 px-3 py-2 bg-slate-900 text-white rounded-lg font-bold text-[10px] uppercase">
+                                Concluir
+                              </button>
+                              <button onClick={() => alterarStatusAgendamento(ag, "faltou")} className="p-2 bg-amber-50 text-amber-700 rounded-lg text-xs font-bold">Falta</button>
+                              <button onClick={() => alterarStatusAgendamento(ag, "cancelado")} className="p-2 bg-red-50 text-red-600 rounded-lg"><X size={14} /></button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <h4 className="font-bold text-slate-800 text-lg mb-1">{cliente.nome || "Cliente"}</h4>
-                      {cliente.email && <p className="text-[11px] text-slate-500 truncate">{cliente.email}</p>}
-                      <div className="flex items-center gap-2 text-emerald-600 font-black text-[11px] mt-2">
-                        <MessageCircle size={14} /> {cliente.telefone || "Telefone não informado"}
+                    ))
+                  ) : (
+                    <div className="py-10 text-center text-slate-400 text-xs"><CalendarIcon className="mx-auto mb-2 text-slate-300" size={24} /> Sem consultas agendadas.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {telaAtiva === "clientes" && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 animate-fade-in">
+              <div className="lg:col-span-2 space-y-3">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input type="text" placeholder="Buscar por nome ou telefone..." value={busca} onChange={(e) => setBusca(e.target.value)} className="w-full bg-white pl-10 pr-4 py-3 rounded-xl border border-slate-200 outline-none text-xs transition" />
+                  </div>
+                  <button onClick={() => setOrdenacao(ordenacao === "nome" ? "faturamento" : "nome")} className="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-xs hover:bg-slate-50 transition shadow-xs whitespace-nowrap">
+                    <ArrowUpDown size={14} /> {ordenacao === "nome" ? "Ordem: Nome" : "Ordem: Faturamento"}
+                  </button>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
+                  <div className="divide-y divide-slate-100">
+                    {clientesFiltradosETordenados.length > 0 ? (
+                      clientesFiltradosETordenados.map((c) => {
+                        const totalFaturado = c.historico?.reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0) || 0;
+                        return (
+                          <div key={c.id} onClick={() => setClienteSelecionado(c)} className="p-4 flex justify-between items-center cursor-pointer transition-all hover:bg-slate-50/40" style={clienteSelecionado?.id === c.id ? { borderLeft: `4px solid ${ROXO_DESTAQUE}`, paddingLeft: "12px", backgroundColor: LILAS_SUAVE } : {}}>
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-lg flex items-center justify-center font-bold uppercase text-xs" style={{ backgroundColor: LILAS_SUAVE, color: TEXTO_LILAS }}>{c.nome?.slice(0, 2)}</div>
+                              <div><h3 className="font-extrabold text-slate-800 text-xs">{c.nome}</h3><p className="text-[11px] text-slate-400 mt-0.5">{c.telefone}</p></div>
+                            </div>
+                            <div className="text-right flex items-center gap-2">
+                              <div><p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Total</p><p className="font-black text-slate-700 text-xs">R$ {totalFaturado}</p></div>
+                              <ChevronIcon size={14} className="text-slate-300" />
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="py-12 text-center text-slate-400 text-xs"><Users className="mx-auto mb-2 text-slate-300" size={28} /> Nenhum cliente localizado.</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* DETALHES / FICHA DO CLIENTE */}
+              <div className="bg-white p-4 lg:p-6 rounded-2xl border border-slate-100 shadow-xs h-fit space-y-5">
+                {clienteFicha ? (
+                  <div className="space-y-5">
+                    <div className="flex justify-between items-start border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-xl flex items-center justify-center font-black text-sm uppercase" style={{ backgroundColor: LILAS_SUAVE, color: TEXTO_LILAS }}>{clienteFicha.nome?.slice(0,2)}</div>
+                        <div><h2 className="font-black text-slate-900 text-sm">{clienteFicha.nome}</h2><p className="text-[11px] text-slate-400 mt-0.5">Ficha do Cliente</p></div>
                       </div>
                     </div>
-                  ))
+                    <div className="space-y-2 text-xs">
+                      <div className="flex items-center gap-2.5 p-2.5 bg-slate-50 rounded-xl border border-slate-100"><Mail size={14} className="text-slate-400" /><div className="overflow-hidden"><p className="text-[9px] text-slate-400 uppercase font-bold">E-mail</p><p className="font-semibold text-slate-700 truncate">{clienteFicha.email}</p></div></div>
+                      <div className="flex items-center gap-2.5 p-2.5 bg-slate-50 rounded-xl border border-slate-100"><MessageCircle size={14} className="text-slate-400" /><div><p className="text-[9px] text-slate-400 uppercase font-bold">WhatsApp</p><p className="font-semibold text-slate-700">{clienteFicha.telefone}</p></div></div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="p-2.5 rounded-xl border" style={{ backgroundColor: LILAS_SUAVE, borderColor: "#e6e1f5" }}><p className="text-[9px] uppercase font-black tracking-wider" style={{ color: TEXTO_LILAS }}>Consultas</p><p className="font-black text-lg mt-0.5" style={{ color: ROXO_PROFUNDO }}>{clienteFicha.historico?.length || 0}</p></div>
+                        <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100"><p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Faturado</p><p className="font-black text-slate-700 text-lg mt-0.5">R$ {clienteFicha.totalGeral || 0}</p></div>
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="font-black text-slate-400 text-[9px] uppercase border-b border-slate-100 pb-2 mb-2">Histórico</h4>
+                      <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                        {clienteFicha.historico?.length > 0 ? (
+                          clienteFicha.historico.map((h, i) => (
+                            <div key={i} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex justify-between items-center">
+                              <div><p className="font-bold text-slate-800 text-xs">{h.servico}</p><p className="text-[10px] text-slate-400 mt-0.5">{h.data} • {h.horario}</p></div>
+                              <span className="text-[8px] font-black uppercase px-2 py-1 rounded-md" style={{ backgroundColor: h.status === "concluido" ? LILAS_SUAVE : "#fee2e2", color: h.status === "concluido" ? TEXTO_LILAS : "#b91c1c" }}>
+                                {h.status === "concluido" ? "OK" : h.status}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-xs text-slate-400 py-4 text-center">Nenhum registro.</p>
+                        )}
+                      </div>
+                      <button onClick={() => setModalNovoHistorico(true)} className="w-full mt-3 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl transition">Lançar Atendimento</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-12 text-center text-slate-400 text-xs"><History className="mx-auto mb-2 text-slate-300" size={28} /> Selecione um cliente para ver a ficha completa.</div>
                 )}
               </div>
             </div>
           )}
 
-          {/* TELA DE AGENDA - COM CABEÇALHO FIXO */}
-          {telaAtiva === "agenda" && (
-            <div className="max-w-4xl mx-auto">
-              <div className="sticky top-0 z-10 bg-[#f8fafc] pb-4">
-                <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-6">
-                  <SeletorData inputRef={inputAgendaRef} />
-                  <div className="flex bg-slate-200/50 p-1.5 rounded-2xl gap-1">
-                    {Object.keys(servicosConfig).map((id) => (
-                      <button key={id} onClick={() => setAbaAtiva(id)} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black transition-all ${abaAtiva === id ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>
-                        <span className={abaAtiva === id ? servicosConfig[id].color : "text-slate-400"}>{servicosConfig[id].icon}</span>
-                        {id.toUpperCase()}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid gap-3">
-                {agendamentosDoDia.filter((ag) => ag.servico === abaAtiva).length === 0 ? (
-                  <div className="bg-white/50 p-20 rounded-[40px] text-center border-2 border-dashed border-slate-200 text-slate-300 font-black uppercase text-[10px] tracking-widest">
-                    Nenhum agendamento para {abaAtiva} no dia {dataFormatada}
-                  </div>
-                ) : (
-                  agendamentosDoDia
-                    .filter((ag) => ag.servico === abaAtiva)
-                    .map((ag) => {
-                      const cliente = buscarDadosCliente(ag.userId);
-                      const podeAlterar = podeAlterarStatus(ag.status);
-                      
-                      return (
-                        <div 
-                          key={ag.id} 
-                          onClick={() => podeAlterar && setAgendamentoSelecionado({ ...ag, clienteData: cliente })} 
-                          className={`bg-white p-6 rounded-[30px] border transition-all cursor-pointer shadow-sm group hover:shadow-md ${
-                            !podeAlterar ? "opacity-75 border-gray-200 cursor-default" : "border-transparent hover:border-emerald-500"
-                          }`}
-                        >
-                          <div className="flex justify-between items-start">
-                            <div className="flex items-center gap-4 flex-1">
-                              <div className="h-12 w-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors">
-                                <User size={22} />
-                              </div>
-                              <div className="flex-1">
-                                <p className="font-bold text-slate-800 text-lg">{ag.userName || cliente.nome || "Cliente"}</p>
-                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-                                  <p className="text-[11px] font-black text-emerald-500 uppercase flex items-center gap-1.5">
-                                    <Clock size={14} /> {ag.horario}
-                                  </p>
-                                  {cliente.telefone && (
-                                    <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                                      <MessageCircle size={10} /> {cliente.telefone}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            <div className={`text-[8px] font-black uppercase px-3 py-1.5 rounded-full ${
-                              ag.status === "concluido" ? "bg-emerald-100 text-emerald-700" : 
-                              ag.status === "pendente" ? "bg-amber-100 text-amber-700" : 
-                              ag.status === "faltou" ? "bg-red-100 text-red-700" : "bg-red-100 text-red-700"
-                            }`}>
-                              {ag.status === "concluido" ? "✓ CONCLUÍDO" : 
-                               ag.status === "pendente" ? "⏳ PENDENTE" : 
-                               ag.status === "faltou" ? "❌ FALTOU" : "✗ CANCELADO"}
-                            </div>
-                          </div>
-                          {!podeAlterar && (
-                            <div className="mt-3 text-[9px] text-slate-400 border-t pt-2">
-                              Este agendamento já foi finalizado e não pode mais ser alterado.
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
-                )}
-              </div>
+          {telaAtiva === "metricas" && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 animate-fade-in">
+              <div className="bg-white p-4 lg:p-6 rounded-2xl border border-slate-100 shadow-xs"><p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Faturamento Período</p><p className="text-2xl font-black text-slate-900 mt-1">R$ {faturamentoTotalPeriodo}</p></div>
+              <div className="bg-white p-4 lg:p-6 rounded-2xl border border-slate-100 shadow-xs"><p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Clientes Atendidos</p><p className="text-2xl font-black text-slate-900 mt-1">{totalClientesAtendidosPeriodo}</p></div>
+              <div className="bg-white p-4 lg:p-6 rounded-2xl border border-slate-100 shadow-xs"><p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Consultas Concluídas</p><p className="text-2xl font-black text-slate-900 mt-1">{agendamentosFiltrados.filter(ag => ag.status === "concluido").length}</p></div>
             </div>
           )}
         </main>
       </div>
 
-      {/* MODAL DETALHES DO AGENDAMENTO */}
-      {agendamentoSelecionado && (
-        <div className="fixed inset-0 bg-slate-900/80 z-[200] flex items-center justify-center p-4 backdrop-blur-md">
-          <div className="bg-white w-full max-w-md rounded-[45px] overflow-hidden shadow-2xl">
-            <div className="bg-gradient-to-r from-[#059669] to-[#047857] p-6 text-white">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-[10px] font-black text-emerald-200 uppercase tracking-widest mb-1">Detalhes do Agendamento</p>
-                  <h3 className="font-bold text-xl">{agendamentoSelecionado.userName || agendamentoSelecionado.clienteData?.nome || "Cliente"}</h3>
-                </div>
-                <button onClick={() => setAgendamentoSelecionado(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={20} /></button>
-              </div>
+      {/* MODAL LANÇAR ATENDIMENTO */}
+      {modalNovoHistorico && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
+          <div className="bg-white p-5 rounded-t-2xl sm:rounded-2xl max-w-sm w-full space-y-4 shadow-xl border border-slate-100 animate-scale-up">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+              <h3 className="font-black text-slate-900 text-sm">Registrar Procedimento</h3>
+              <button onClick={() => setModalNovoHistorico(false)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
             </div>
-
-            <div className="p-6 space-y-5">
-              <div className="bg-slate-50 rounded-2xl p-4 space-y-3">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contato do Cliente</h4>
-                <div className="flex items-center gap-3">
-                  <div className="bg-white p-2 rounded-xl shadow-sm"><Mail size={16} className="text-emerald-600" /></div>
-                  <div className="flex-1">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase">E-mail</p>
-                    <p className="text-sm font-medium text-slate-700">{agendamentoSelecionado.clienteData?.email || "Não informado"}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="bg-white p-2 rounded-xl shadow-sm"><MessageCircle size={16} className="text-emerald-600" /></div>
-                  <div className="flex-1">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase">WhatsApp</p>
-                    <p className="text-sm font-medium text-slate-700">{agendamentoSelecionado.clienteData?.telefone || "Não informado"}</p>
-                  </div>
-                  {agendamentoSelecionado.clienteData?.telefone && (
-                    <button onClick={() => window.open(`https://wa.me/55${agendamentoSelecionado.clienteData.telefone.replace(/\D/g, "")}`, "_blank")} className="bg-green-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-green-600 transition">WhatsApp</button>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-slate-50 rounded-2xl p-4 space-y-3">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Detalhes da Consulta</h4>
-                <div className="flex justify-between items-center"><span className="text-sm text-slate-600">Serviço:</span><span className="font-bold text-slate-800">{agendamentoSelecionado.servico}</span></div>
-                <div className="flex justify-between items-center"><span className="text-sm text-slate-600">Data:</span><span className="font-bold text-slate-800">{agendamentoSelecionado.data}</span></div>
-                <div className="flex justify-between items-center"><span className="text-sm text-slate-600">Horário:</span><span className="font-bold text-emerald-600">{agendamentoSelecionado.horario}</span></div>
-                <div className="flex justify-between items-center pt-2 border-t border-slate-200">
-                  <span className="text-sm text-slate-600">Status Atual:</span>
-                  <span className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-full ${agendamentoSelecionado.status === "concluido" ? "bg-emerald-100 text-emerald-700" : agendamentoSelecionado.status === "pendente" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>
-                    {agendamentoSelecionado.status === "concluido" ? "Concluído" : agendamentoSelecionado.status === "pendente" ? "Pendente" : agendamentoSelecionado.status === "faltou" ? "Faltou" : "Cancelado"}
-                  </span>
-                </div>
-              </div>
-
-              {agendamentoSelecionado.status === "pendente" ? (
-                <div className="space-y-2 pt-2">
-                  <button onClick={() => atualizarStatus(agendamentoSelecionado, "concluido")} className="w-full p-4 bg-emerald-600 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all">
-                    <CheckCircle2 size={18} /> MARCAR COMO CONCLUÍDO
-                  </button>
-                  <button onClick={() => atualizarStatus(agendamentoSelecionado, "faltou")} className="w-full p-4 bg-amber-50 text-amber-700 rounded-2xl font-black text-sm hover:bg-amber-100 transition-all">
-                    MARCAR COMO FALTA
-                  </button>
-                  <button onClick={() => atualizarStatus(agendamentoSelecionado, "cancelado")} className="w-full p-4 text-red-500 font-black text-sm hover:bg-red-50 rounded-2xl transition-all">
-                    CANCELAR AGENDAMENTO
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-2 pt-2">
-                  <div className="p-4 bg-slate-100 rounded-2xl text-center text-slate-500 text-sm font-bold">
-                    Este agendamento já foi finalizado
-                  </div>
-                  <button onClick={() => setAgendamentoSelecionado(null)} className="w-full p-4 bg-slate-600 text-white rounded-2xl font-black text-sm hover:bg-slate-700 transition-all">
-                    FECHAR
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL RELATÓRIO */}
-      {modalRelatorioAberto && (
-        <div className="fixed inset-0 bg-slate-900/80 z-[200] flex items-center justify-center p-4 backdrop-blur-md">
-          <div className="bg-white w-full max-w-2xl rounded-[45px] max-h-[80vh] flex flex-col shadow-2xl">
-            <div className={`p-6 rounded-t-[45px] text-white ${
-              modalRelatorioAberto.status === "concluido" ? "bg-emerald-600" :
-              modalRelatorioAberto.status === "faltou" ? "bg-amber-600" : "bg-red-600"
-            }`}>
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-2xl font-black">
-                    {modalRelatorioAberto.status === "concluido" ? "✓ Concluídos" :
-                     modalRelatorioAberto.status === "faltou" ? "❌ Faltas" : "✗ Cancelados"}
-                  </h2>
-                  <p className="text-white/80 text-sm mt-1">Total: {modalRelatorioAberto.clientes.length} agendamentos</p>
-                </div>
-                <button onClick={() => setModalRelatorioAberto(null)} className="p-2 hover:bg-white/10 rounded-full transition">
-                  <X size={24} />
-                </button>
-              </div>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-6 space-y-3">
-              {modalRelatorioAberto.clientes.length === 0 ? (
-                <div className="text-center text-slate-400 py-10">
-                  Nenhum agendamento encontrado para este status.
-                </div>
-              ) : (
-                modalRelatorioAberto.clientes.map((item, index) => (
-                  <div key={index} className="bg-slate-50 rounded-2xl p-4 flex justify-between items-center hover:bg-slate-100 transition">
-                    <div>
-                      <p className="font-bold text-slate-800">{item.clienteNome}</p>
-                      <div className="flex gap-3 mt-1 text-xs text-slate-500">
-                        <span>{item.servico}</span>
-                        <span>•</span>
-                        <span>{item.data} às {item.horario}</span>
-                      </div>
-                      {item.clienteTelefone && item.clienteTelefone !== "Não informado" && (
-                        <p className="text-[10px] text-emerald-600 mt-1 flex items-center gap-1">
-                          <MessageCircle size={10} /> {item.clienteTelefone}
-                        </p>
-                      )}
-                    </div>
-                    <button 
-                      onClick={() => {
-                        if (item.clienteTelefone && item.clienteTelefone !== "Não informado") {
-                          window.open(`https://wa.me/55${item.clienteTelefone.replace(/\D/g, "")}`, "_blank");
-                        }
-                      }}
-                      className="bg-green-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-green-600 transition"
-                      disabled={!item.clienteTelefone || item.clienteTelefone === "Não informado"}
-                    >
-                      WhatsApp
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL FICHA DO CLIENTE */}
-      {clienteFicha && (
-        <div className="fixed inset-0 bg-slate-900/80 z-[200] flex items-center justify-center p-4 backdrop-blur-md">
-          <div className="bg-white w-full max-w-lg rounded-[50px] h-[80vh] flex flex-col shadow-2xl">
-            <div className="p-8 border-b flex justify-between items-center bg-gradient-to-r from-[#059669] to-[#047857] rounded-t-[50px]">
+            <form onSubmit={adicionarAoHistoricoManual} className="space-y-3">
               <div>
-                <h3 className="font-black text-2xl text-white">{clienteFicha.nome || "Cliente"}</h3>
-                {clienteFicha.email && <p className="text-emerald-100 text-sm mt-1">{clienteFicha.email}</p>}
-              </div>
-              <button onClick={() => setClienteFicha(null)} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition"><X size={20} className="text-white" /></button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-8 space-y-6">
-              <div className="flex gap-4">
-                {clienteFicha.telefone && (
-                  <button onClick={() => window.open(`https://wa.me/55${clienteFicha.telefone.replace(/\D/g, "")}`, "_blank")} className="flex-1 bg-green-500 text-white p-4 rounded-3xl font-black text-[11px] uppercase flex items-center justify-center gap-2 hover:bg-green-600 transition"><MessageCircle size={18} /> WhatsApp</button>
-                )}
-                {clienteFicha.email && (
-                  <button onClick={() => window.location.href = `mailto:${clienteFicha.email}`} className="flex-1 bg-emerald-600 text-white p-4 rounded-3xl font-black text-[11px] uppercase flex items-center justify-center gap-2 hover:bg-emerald-700 transition"><Mail size={18} /> Enviar Email</button>
-                )}
-                <div className="px-6 py-4 bg-slate-50 rounded-3xl text-center border">
-                  <span className="text-slate-400 text-[9px] font-black uppercase">Visitas</span>
-                  <p className="font-black text-xl text-slate-800">{clienteFicha.totalGeral || 0}</p>
-                </div>
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Serviço / Tratamento</label>
+                <select value={novoServico} onChange={(e) => setNovoServico(e.target.value)} required className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none text-xs font-semibold text-slate-700">
+                  <option value="">Selecione...</option>
+                  <option value="Nutrição">Nutrição</option>
+                  <option value="Farmácia">Farmácia</option>
+                  <option value="Acupuntura">Acupuntura</option>
+                </select>
               </div>
               <div>
-                <h4 className="font-black text-slate-400 text-[10px] uppercase border-b pb-2 mb-3">Histórico de Consultas</h4>
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {clienteFicha.historico?.length > 0 ? (
-                    clienteFicha.historico.map((h, i) => (
-                      <div key={i} className="p-4 bg-slate-50 rounded-2xl flex justify-between items-center hover:bg-slate-100 transition">
-                        <div><p className="font-bold text-slate-800 text-sm">{h.servico}</p><p className="text-[10px] text-slate-400 mt-1">{h.data} • {h.horario}</p></div>
-                        <span className={`text-[8px] font-black uppercase px-3 py-1.5 rounded-full ${h.status === "concluido" ? "bg-emerald-100 text-emerald-700" : h.status === "faltou" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>
-                          {h.status === "concluido" ? "Concluído" : h.status === "faltou" ? "Faltou" : "Cancelado"}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center text-slate-400 py-8 text-sm">Nenhum histórico encontrado</div>
-                  )}
-                </div>
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Valor Cobrado (R$)</label>
+                <input type="number" placeholder="Ex: 150" value={novoValor} onChange={(e) => setNovoValor(e.target.value)} required className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl outline-none text-xs font-semibold" />
               </div>
-            </div>
+              <button type="submit" className="w-full py-3 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all" style={{ backgroundColor: ROXO_DESTAQUE, boxShadow: `0 4px 14px rgba(160, 144, 201, 0.35)` }}>
+                Salvar no Histórico
+              </button>
+            </form>
           </div>
         </div>
       )}
