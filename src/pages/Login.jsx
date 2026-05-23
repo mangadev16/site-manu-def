@@ -54,11 +54,12 @@ const Login = () => {
         style={{
           minHeight: "100vh", width: "100vw",
           display: "flex", alignItems: "center", justifyContent: "center",
-          padding: "2rem 1.5rem", overflow: "hidden", position: "relative",
+          padding: "4rem 1.25rem 2rem 1.25rem", overflowX: "hidden", position: "relative",
           backgroundColor: "#0D3D35",
           backgroundImage: "url('/backgroundlogin.png')",
           backgroundRepeat: "repeat",
           backgroundSize: `${TILE_W}px ${TILE_H}px`,
+          boxSizing: "border-box"
         }}
       >
         {/* Overlay original */}
@@ -71,66 +72,67 @@ const Login = () => {
         {/* Card Branco principal */}
         <div style={{
           position: "relative", zIndex: 10,
-          width: "100%", maxWidth: "420px",
-          borderRadius: "45px", 
+          width: "100%", maxWidth: "400px",
+          borderRadius: "35px", 
           backgroundColor: "white",
           boxShadow: "0 30px 60px rgba(0,0,0,0.3)",
-          paddingBottom: "2.5rem",
+          paddingBottom: "2rem",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          marginTop: "4.5rem", /* Espaço para compensar a sobreposição */
+          marginTop: "60px", /* Ajustado para dar espaço ao topo da caixa verde */
+          boxSizing: "border-box"
         }}>
 
-          {/* Quadrado Verde que sobrepõe o card (Estilo Canva autêntico) */}
-<div style={{
-  backgroundColor: "#0D3D35",
-  width: "72%",
-  height: "145px",          /*  Tamanho da caixa completamente travado */
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "flex-end", /* Garante que o texto fique sempre fixo no rodapé interno */
-  paddingBottom: "1rem",     /* Afastamento do texto em relação à borda inferior */
-  borderRadius: "35px", 
-  marginTop: "-75px",        /* Puxa a caixa para cima do card branco */
-  boxShadow: "0px 12px 25px rgba(0, 0, 0, 0.25)",
-  boxSizing: "border-box",
-  zIndex: 20,
-  position: "relative"       
-}}>
-  <img
-    src="/logotransparente.png"
-    alt="Manu"
-    style={{
-      position: "absolute",  
-      top: "43%",            /* 🎯 Move o centro da logo para perto do meio da caixa */
-      left: "50%",           /* 🎯 Centraliza horizontalmente */
-      transform: "translate(-50%, -50%)", /* 🎯 Truque perfeito para centralização absoluta */
-      height: "250px",       /* 📏 Altura limite ideal para não estourar os limites da caixa */
-      width: "auto",
-      objectFit: "contain",
-    }}
-  />
-  <p style={{
-    color: "#CBEF6C",
-    fontSize: "10.5px",      /* Tamanho ideal para não quebrar linha */
-    fontWeight: 800,
-    letterSpacing: "0.03em",
-    textTransform: "uppercase",
-    textAlign: "center",
-    margin: 0,
-    whiteSpace: "nowrap"
-  }}>
-    {modoAdmin
-      ? "⬡ Modo Administrador"
-      : "Nutrição ● Farmácia ● Acupuntura"}
-  </p>
-</div>
+          {/* Quadrado Verde que sobrepõe o card */}
+          <div style={{
+            backgroundColor: "#342a4c",
+            width: "80%",              /* Aumentado levemente para respirar melhor nas laterais */
+            height: "135px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            paddingBottom: "1rem",
+            borderRadius: "28px", 
+            marginTop: "-65px",        /* Subida suave proporcional ao novo tamanho */
+            boxShadow: "0px 12px 25px rgba(0, 0, 0, 0.25)",
+            boxSizing: "border-box",
+            zIndex: 20,
+            position: "relative"       
+          }}>
+            <img
+              src="/logotransparente.png"
+              alt="Manu"
+              style={{
+                position: "absolute",  
+                top: "40%",            
+                left: "50%",           
+                transform: "translate(-50%, -50%)", 
+                height: "200px",       /* Reduzido de 250px para não achatar ou estourar no mobile */
+                width: "auto",
+                objectFit: "contain",
+              }}
+            />
+            <p style={{
+              color: "#CBEF6C",
+              fontSize: "10px",      
+              fontWeight: 800,
+              letterSpacing: "0.03em",
+              textTransform: "uppercase",
+              textAlign: "center",
+              margin: 0,
+              whiteSpace: "nowrap"
+            }}>
+              {modoAdmin
+                ? "⬡ Modo Administrador"
+                : "Nutrição ● Farmácia ● Acupuntura"}
+            </p>
+          </div>
 
           {/* Subtítulo do Card */}
           <p style={{
-            color: "#009669",
+            color: "#6b5e8b",
             fontSize: "12px",
             fontWeight: 800,
             letterSpacing: "0.06em",
@@ -143,14 +145,14 @@ const Login = () => {
           </p>
 
           {/* Formulários e Inputs */}
-          <div style={{ padding: "0 2.2rem", width: "100%", boxSizing: "border-box" }}>
+          <div style={{ padding: "0 1.75rem", width: "100%", boxSizing: "border-box" }}>
             {!modoAdmin ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
                 <input
                   type="email"
                   placeholder="Seu E-mail"
                   style={{
-                    width: "100%", padding: "1.05rem 1.25rem",
+                    width: "100%", padding: "1rem 1.25rem",
                     border: "none", borderRadius: "14px",
                     backgroundColor: "#F4F6F8", outline: "none",
                     fontSize: "15px", boxSizing: "border-box",
@@ -165,7 +167,7 @@ const Login = () => {
                     type={mostrarSenha ? "text" : "password"}
                     placeholder="Senha"
                     style={{
-                      width: "100%", padding: "1.05rem 3.5rem 1.05rem 1.25rem",
+                      width: "100%", padding: "1rem 3.5rem 1rem 1.25rem",
                       border: "none", borderRadius: "14px",
                       backgroundColor: "#F4F6F8", outline: "none",
                       fontSize: "15px", boxSizing: "border-box",
@@ -174,7 +176,7 @@ const Login = () => {
                     onChange={(e) => setSenha(e.target.value)}
                     required
                   />
-                  <button type="button" onClick={() => !mostrarSenha ? setMostrarSenha(true) : setMostrarSenha(false)}
+                  <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)}
                     style={{
                       position: "absolute", right: "1.25rem", top: "50%",
                       transform: "translateY(-50%)", color: "#cbd5e1",
@@ -192,10 +194,10 @@ const Login = () => {
                   type="button"
                   onClick={lidarComLogin}
                   style={{
-                    width: "100%", backgroundColor: "#009669", color: "white",
-                    padding: "1.05rem", borderRadius: "14px", fontWeight: 700,
+                    width: "100%", backgroundColor: "#6b5e8b", color: "white",
+                    padding: "1rem", borderRadius: "14px", fontWeight: 700,
                     fontSize: "16px", border: "none", cursor: "pointer",
-                    marginTop: "0.6rem", boxShadow: "0 6px 20px rgba(0, 150, 105, 0.25)"
+                    marginTop: "0.4rem", boxShadow: "0 6px 20px rgba(0, 150, 105, 0.25)"
                   }}
                 >
                   Entrar
@@ -203,8 +205,8 @@ const Login = () => {
 
                 <button type="button" onClick={() => { setModoAdmin(true); setErro(""); }}
                   style={{
-                    width: "100%", padding: "1.05rem",
-                    border: "2px solid #009669", color: "#009669",
+                    width: "100%", padding: "1rem",
+                    border: "2px solid #6b5e8b", color: "#6b5e8b",
                     borderRadius: "14px", fontWeight: 700, fontSize: "14px",
                     background: "white", cursor: "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
@@ -213,9 +215,9 @@ const Login = () => {
                   <ShieldCheck size={18} /> Entrar como Administrador
                 </button>
 
-                <p style={{ textAlign: "center", fontSize: "12px", color: "#a1a1aa", margin: "1.2rem 0 0" }}>
+                <p style={{ textAlign: "center", fontSize: "12px", color: "#a1a1aa", margin: "1rem 0 0" }}>
                   Ainda não tem conta?{" "}
-                  <Link to="/register" style={{ color: "#009669", fontWeight: 700, textDecoration: "none" }}>
+                  <Link to="/register" style={{ color: "#342a4c", fontWeight: 700, textDecoration: "none" }}>
                     Cadastre-se aqui
                   </Link>
                 </p>
@@ -228,7 +230,7 @@ const Login = () => {
                     type="password"
                     placeholder="Senha Administrativa"
                     style={{
-                      width: "100%", padding: "1.05rem 1.25rem 1.05rem 3.25rem",
+                      width: "100%", padding: "1rem 1.25rem 1rem 3.25rem",
                       border: "none", borderRadius: "14px",
                       backgroundColor: "#F4F6F8", outline: "none",
                       fontSize: "15px", boxSizing: "border-box", color: "#3f3f46"
@@ -246,10 +248,10 @@ const Login = () => {
                 <button type="button" onClick={lidarComLoginAdmin}
                   style={{
                     width: "100%", backgroundColor: "#1f2937", color: "white",
-                    padding: "1.05rem", borderRadius: "14px", fontWeight: 700,
+                    padding: "1rem", borderRadius: "14px", fontWeight: 700,
                     fontSize: "16px", border: "none", cursor: "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
-                    marginTop: "0.6rem"
+                    marginTop: "0.4rem"
                   }}>
                   Acessar Painel <ArrowRight size={19} />
                 </button>
