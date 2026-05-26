@@ -50,24 +50,27 @@ const Login = () => {
       `}</style>
 
       <div
-        className="animated-bg login-root"
+        className="login-root"
         style={{
           minHeight: "100vh", width: "100vw",
           display: "flex", alignItems: "center", justifyContent: "center",
           padding: "4rem 1.25rem 2rem 1.25rem", overflowX: "hidden", position: "relative",
-          backgroundColor: "#0D3D35",
-          backgroundImage: "url('/backgroundlogin.png')",
-          backgroundRepeat: "repeat",
-          backgroundSize: `${TILE_W}px ${TILE_H}px`,
+          /* 🎨 O gradiente liso e estático fica na base, sem quebras */
+          background: "linear-gradient(135deg, #508461 0%, #76AB7A 50%, #A9DC93 100%)",
           boxSizing: "border-box"
         }}
       >
-        {/* Overlay original */}
-        <div style={{
-          position: "absolute", inset: 0,
-          backgroundColor: "#0D3D35", opacity: 0.72,
-          pointerEvents: "none", zIndex: 0,
-        }} />
+        <div 
+          className="animated-bg"
+          style={{
+            position: "absolute", inset: 0,
+            backgroundImage: "url('/Vector.png')",
+            backgroundRepeat: "repeat",
+            backgroundSize: `${TILE_W}px ${TILE_H}px`,
+            opacity: 0.55, 
+            pointerEvents: "none", zIndex: 0,
+          }} 
+        />
 
         {/* Card Branco principal */}
         <div style={{

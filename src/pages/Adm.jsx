@@ -108,6 +108,7 @@ const Adm = () => {
       if (novoStatus === "concluido") {
         const historicoAdicional = {
           servico: ag.servico,
+          duracao: ag.duracao || "1h",
           data: ag.data,
           horario: ag.horario,
           valor: ag.valor || 0,
@@ -192,7 +193,7 @@ const Adm = () => {
 
       <div className="flex flex-1 relative">
         {/* SIDEBAR RESPONSIVO */}
-        <aside className={`w-64 bg-white border-r border-slate-100 p-4 flex flex-col gap-2 fixed lg:static inset-y-0 left-0 z-50 transform ${menuAberto ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} transition-transform duration-300 ease-in-out lg:h-[calc(100vh-73px)]`}>
+        <aside className={`w-64 bg-white border-r border-slate-100 p-4 flex flex-col gap-2 fixed lg:static inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out lg:h-[calc(100vh-73px)] ${menuAberto ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}>
           <div className="lg:hidden flex justify-end mb-2">
             <button onClick={() => setMenuAberto(false)} className="text-slate-400 hover:text-slate-700"><X size={22} /></button>
           </div>
@@ -284,7 +285,7 @@ const Adm = () => {
                 </div>
               </div>
 
-              {/* LISTAGEM RESPONSIVA */}
+              {/* LISTAGEM */}
               <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
                 {/* Desktop (Tabela) */}
                 <div className="hidden md:block overflow-x-auto">
@@ -293,7 +294,7 @@ const Adm = () => {
                       <tr className="bg-slate-50/70 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider">
                         <th className="py-4 px-6">Horário</th>
                         <th className="py-4 px-6">Cliente</th>
-                        <th className="py-4 px-6">Serviço</th>
+                        <th className="py-4 px-6">Serviço / Duração</th>
                         <th className="py-4 px-6">Valor</th>
                         <th className="py-4 px-6">Status</th>
                         <th className="py-4 px-6 text-right">Ações</th>
@@ -305,8 +306,13 @@ const Adm = () => {
                           <tr key={index} className="hover:bg-slate-50/30 transition group text-xs">
                             <td className="py-4 px-6 font-bold text-slate-700"><div className="flex items-center gap-1.5"><Clock size={14} className="text-slate-400" /> {ag.horario}</div></td>
                             <td className="py-4 px-6"><p className="font-extrabold text-slate-800">{ag.clienteNome}</p><p className="text-[11px] text-slate-400 mt-0.5">{ag.clienteTelefone}</p></td>
-                            <td className="py-4 px-6"><span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-md text-[10px] font-bold">{ag.servico}</span></td>
-                            <td className="py-4 px-6 font-extrabold text-slate-700">R$ {ag.valor || 0}</td>
+                            <td className="py-4 px-6">
+                              <div className="flex items-center gap-2">
+                                <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-md text-[10px] font-bold">{ag.servico}</span>
+                                <span className="text-[10px] font-bold text-purple-600 px-2 py-0.5 bg-purple-50 rounded-md border border-purple-100">{ag.duracao === "1h30" ? "1h 30min" : "1 Hora"}</span>
+                              </div>
+                            </td>
+                            <td className="py-4 px-6 font-extrabold text-slate-700">R$ {ag.valor || 0},00</td>
                             <td className="py-4 px-6">
                               <span className="text-[9px] font-black uppercase px-2.5 py-1.5 rounded-full" style={{ backgroundColor: ag.status === "concluido" ? LILAS_SUAVE : ag.status === "faltou" ? "#fef3c7" : ag.status === "cancelado" ? "#fee2e2" : "#dbeafe", color: ag.status === "concluido" ? TEXTO_LILAS : ag.status === "faltou" ? "#b45309" : ag.status === "cancelado" ? "#b91c1c" : "#1d4ed8" }}>
                                 {ag.status}
@@ -330,7 +336,7 @@ const Adm = () => {
                   </table>
                 </div>
 
-                {/* Mobile (Cards Inteligentes de Alta Leitura) */}
+                {/* Mobile */}
                 <div className="block md:hidden divide-y divide-slate-100">
                   {agendamentosFiltrados.filter(ag => ag.servico === abaAtiva).length > 0 ? (
                     agendamentosFiltrados.filter(ag => ag.servico === abaAtiva).map((ag, index) => (
@@ -338,6 +344,7 @@ const Adm = () => {
                         <div className="flex justify-between items-center">
                           <div className="flex items-center gap-1.5 text-xs font-black text-slate-700">
                             <Clock size={14} style={{ color: ROXO_DESTAQUE }} /> {ag.horario}
+                            <span className="ml-1 text-[10px] text-purple-600 font-bold bg-purple-50 px-1.5 py-0.5 rounded">({ag.duracao || "1h"})</span>
                           </div>
                           <span className="text-[9px] font-black uppercase px-2.5 py-1 rounded-full" style={{ backgroundColor: ag.status === "concluido" ? LILAS_SUAVE : ag.status === "faltou" ? "#fef3c7" : ag.status === "cancelado" ? "#fee2e2" : "#dbeafe", color: ag.status === "concluido" ? TEXTO_LILAS : ag.status === "faltou" ? "#b45309" : ag.status === "cancelado" ? "#b91c1c" : "#1d4ed8" }}>
                             {ag.status}
@@ -348,12 +355,10 @@ const Adm = () => {
                           <p className="text-xs text-slate-400 mt-0.5">{ag.clienteTelefone}</p>
                         </div>
                         <div className="flex justify-between items-center pt-3 border-t border-slate-100">
-                          <span className="text-xs font-black text-slate-800">R$ {ag.valor || 0}</span>
+                          <span className="text-xs font-black text-slate-800">R$ {ag.valor || 0},00</span>
                           {ag.status === "pendente" && (
                             <div className="flex gap-1.5">
-                              <button onClick={() => alterarStatusAgendamento(ag, "concluido")} className="flex items-center gap-1 px-3 py-2 bg-slate-900 text-white rounded-lg font-bold text-[10px] uppercase">
-                                Concluir
-                              </button>
+                              <button onClick={() => alterarStatusAgendamento(ag, "concluido")} className="flex items-center gap-1 px-3 py-2 bg-slate-900 text-white rounded-lg font-bold text-[10px] uppercase">Concluir</button>
                               <button onClick={() => alterarStatusAgendamento(ag, "faltou")} className="p-2 bg-amber-50 text-amber-700 rounded-lg text-xs font-bold">Falta</button>
                               <button onClick={() => alterarStatusAgendamento(ag, "cancelado")} className="p-2 bg-red-50 text-red-600 rounded-lg"><X size={14} /></button>
                             </div>
@@ -378,7 +383,7 @@ const Adm = () => {
                     <input type="text" placeholder="Buscar por nome ou telefone..." value={busca} onChange={(e) => setBusca(e.target.value)} className="w-full bg-white pl-10 pr-4 py-3 rounded-xl border border-slate-200 outline-none text-xs transition" />
                   </div>
                   <button onClick={() => setOrdenacao(ordenacao === "nome" ? "faturamento" : "nome")} className="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-xs hover:bg-slate-50 transition shadow-xs whitespace-nowrap">
-                    <ArrowUpDown size={14} /> {ordenacao === "nome" ? "Ordem: Nome" : "Ordem: Faturamento"}
+                    <ArrowUpDown size={14} /> {ordenacao === "nome" ? "Ordem: Nome" : "Ordem: Valor Pago"}
                   </button>
                 </div>
 
@@ -394,7 +399,7 @@ const Adm = () => {
                               <div><h3 className="font-extrabold text-slate-800 text-xs">{c.nome || "Sem Nome"}</h3><p className="text-[11px] text-slate-400 mt-0.5">{c.telefone || "Sem Telefone"}</p></div>
                             </div>
                             <div className="text-right flex items-center gap-2">
-                              <div><p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Total</p><p className="font-black text-slate-700 text-xs">R$ {totalFaturado}</p></div>
+                              <div><p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Total Pago</p><p className="font-black text-slate-700 text-xs">R$ {totalFaturado},00</p></div>
                               <ChevronIcon size={14} className="text-slate-300" />
                             </div>
                           </div>
@@ -422,7 +427,7 @@ const Adm = () => {
                       <div className="flex items-center gap-2.5 p-2.5 bg-slate-50 rounded-xl border border-slate-100"><MessageCircle size={14} className="text-slate-400" /><div><p className="text-[9px] text-slate-400 uppercase font-bold">WhatsApp</p><p className="font-semibold text-slate-700">{clienteFicha.telefone || "Não informado"}</p></div></div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="p-2.5 rounded-xl border" style={{ backgroundColor: LILAS_SUAVE, borderColor: "#e6e1f5" }}><p className="text-[9px] uppercase font-black tracking-wider" style={{ color: TEXTO_LILAS }}>Consultas</p><p className="font-black text-lg mt-0.5" style={{ color: ROXO_PROFUNDO }}>{clienteFicha.historico?.length || 0}</p></div>
-                        <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100"><p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Faturado</p><p className="font-black text-slate-700 text-lg mt-0.5">R$ {clienteFicha.totalGeral || 0}</p></div>
+                        <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100"><p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Total Já Pago</p><p className="font-black text-slate-700 text-lg mt-0.5">R$ {clienteFicha.totalGeral || 0},00</p></div>
                       </div>
                     </div>
                     <div>
@@ -430,8 +435,11 @@ const Adm = () => {
                       <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                         {clienteFicha.historico?.length > 0 ? (
                           clienteFicha.historico.map((h, i) => (
-                            <div key={i} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex justify-between items-center">
-                              <div><p className="font-bold text-slate-800 text-xs">{h.servico}</p><p className="text-[10px] text-slate-400 mt-0.5">{h.data} • {h.horario}</p></div>
+                            <div key={i} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex justify-between items-center text-xs">
+                              <div>
+                                <p className="font-bold text-slate-800">{h.servico} <span className="text-[10px] text-purple-600">({h.duracao || "1h"})</span></p>
+                                <p className="text-[10px] text-slate-400 mt-0.5">{h.data} • {h.horario} • <strong className="text-slate-700">R$ {h.valor},00</strong></p>
+                              </div>
                               <span className="text-[8px] font-black uppercase px-2 py-1 rounded-md" style={{ backgroundColor: h.status === "concluido" ? LILAS_SUAVE : "#fee2e2", color: h.status === "concluido" ? TEXTO_LILAS : "#b91c1c" }}>
                                 {h.status === "concluido" ? "OK" : h.status}
                               </span>
@@ -453,7 +461,7 @@ const Adm = () => {
 
           {telaAtiva === "metricas" && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 animate-fade-in">
-              <div className="bg-white p-4 lg:p-6 rounded-2xl border border-slate-100 shadow-xs"><p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Faturamento Período</p><p className="text-2xl font-black text-slate-900 mt-1">R$ {faturamentoTotalPeriodo}</p></div>
+              <div className="bg-white p-4 lg:p-6 rounded-2xl border border-slate-100 shadow-xs"><p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Faturamento Período</p><p className="text-2xl font-black text-slate-900 mt-1">R$ {faturamentoTotalPeriodo},00</p></div>
               <div className="bg-white p-4 lg:p-6 rounded-2xl border border-slate-100 shadow-xs"><p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Clientes Atendidos</p><p className="text-2xl font-black text-slate-900 mt-1">{totalClientesAtendidosPeriodo}</p></div>
               <div className="bg-white p-4 lg:p-6 rounded-2xl border border-slate-100 shadow-xs"><p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Consultas Concluídas</p><p className="text-2xl font-black text-slate-900 mt-1">{agendamentosFiltrados.filter(ag => ag.status === "concluido").length}</p></div>
             </div>
@@ -501,12 +509,8 @@ const Adm = () => {
             </div>
             <p className="text-xs text-slate-600">Tem certeza de que deseja encerrar a sua sessão e sair do painel administrativo?</p>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => setModalLogOut(false)} className="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded-xl font-bold text-xs transition-all hover:bg-slate-50">
-                Cancelar
-              </button>
-              <button onClick={lidarComLogout} className="flex-1 py-2.5 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all" style={{ backgroundColor: ROXO_DESTAQUE, boxShadow: `0 4px 14px rgba(160, 144, 201, 0.35)` }}>
-                Confirmar e Sair
-              </button>
+              <button onClick={() => setModalLogOut(false)} className="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded-xl font-bold text-xs transition-all hover:bg-slate-50">Cancelar</button>
+              <button onClick={lidarComLogout} className="flex-1 py-2.5 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all" style={{ backgroundColor: ROXO_DESTAQUE, boxShadow: `0 4px 14px rgba(160, 144, 201, 0.35)` }}>Confirmar e Sair</button>
             </div>
           </div>
         </div>
