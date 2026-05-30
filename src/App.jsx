@@ -10,8 +10,9 @@ import Agendamento from "./pages/Agendamento";
 import Nutricao from "./pages/Nutricao";
 import Acupuntura from "./pages/Acupuntura";
 import Farmacia from "./pages/Farmacia";
-import Adm from "./pages/Adm"; 
-import Contatos from "./pages/Contatos"
+import Adm from "./pages/Adm";
+import Contatos from "./pages/Contatos";
+import Manuela from "./pages/Manuela";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -30,26 +31,27 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Rotas de Autenticação */}
+        {/* Autenticação */}
         <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" />} />
         <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" />} />
-        
-        {/* Rota de Administração (Acessível via senha no Login) */}
+
+        {/* Administração */}
         <Route path="/adm" element={<Adm />} />
 
-        {/* Rotas de Utilizador Logado */}
+        {/* Rotas protegidas */}
+        <Route path="/manuela" element={user ? <Manuela /> : <Navigate to="/login" />} />
         <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
-        <Route path="/meus-dados" element={user ? <MeusDados /> : <Navigate to="/login" />} /> 
+        <Route path="/meus-dados" element={user ? <MeusDados /> : <Navigate to="/login" />} />
         <Route path="/perfil" element={user ? <Perfil /> : <Navigate to="/login" />} />
         <Route path="/agendamento" element={user ? <Agendamento /> : <Navigate to="/login" />} />
-        <Route path="/contatos" element={user ? <Contatos /> : <Navigate to="/contatos" />} />
-        
-        {/* Rotas de Serviços */}
+        <Route path="/contatos" element={user ? <Contatos /> : <Navigate to="/login" />} />
+
+        {/* Serviços */}
         <Route path="/nutricao" element={user ? <Nutricao /> : <Navigate to="/login" />} />
         <Route path="/acupuntura" element={user ? <Acupuntura /> : <Navigate to="/login" />} />
         <Route path="/farmacia" element={user ? <Farmacia /> : <Navigate to="/login" />} />
 
-        {/* Redirecionamento Padrão */}
+        {/* Padrão */}
         <Route path="/" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
       </Routes>
     </Router>

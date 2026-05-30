@@ -158,7 +158,7 @@ const Register = () => {
 
           {/* Subtítulo do Card */}
           <p style={{
-            color: "#a08fc9", 
+            color: "#6b5f8c", 
             fontSize: "12px",
             fontWeight: 800,
             letterSpacing: "0.06em",
