@@ -13,6 +13,7 @@ import Farmacia from "./pages/Farmacia";
 import Adm from "./pages/Adm";
 import Contatos from "./pages/Contatos";
 import Manuela from "./pages/Manuela";
+import Inicio from "./pages/Inicio";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -38,21 +39,22 @@ function App() {
         {/* Administração */}
         <Route path="/adm" element={<Adm />} />
 
-        {/* Rotas protegidas */}
-        <Route path="/manuela" element={user ? <Manuela /> : <Navigate to="/login" />} />
-        <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
+        {/* Rotas 100% públicas */}
+        <Route path="/inicio" element={<Inicio />} />
+        <Route path="/manuela" element={<Manuela />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/contatos" element={<Contatos />} />
+        <Route path="/nutricao" element={<Nutricao />} />
+        <Route path="/acupuntura" element={<Acupuntura />} />
+        <Route path="/farmacia" element={<Farmacia />} />
+
+        {/* Rotas protegidas (requerem login) */}
+        <Route path="/agendamento" element={user ? <Agendamento /> : <Navigate to="/login" />} />
         <Route path="/meus-dados" element={user ? <MeusDados /> : <Navigate to="/login" />} />
         <Route path="/perfil" element={user ? <Perfil /> : <Navigate to="/login" />} />
-        <Route path="/agendamento" element={user ? <Agendamento /> : <Navigate to="/login" />} />
-        <Route path="/contatos" element={user ? <Contatos /> : <Navigate to="/login" />} />
-
-        {/* Serviços */}
-        <Route path="/nutricao" element={user ? <Nutricao /> : <Navigate to="/login" />} />
-        <Route path="/acupuntura" element={user ? <Acupuntura /> : <Navigate to="/login" />} />
-        <Route path="/farmacia" element={user ? <Farmacia /> : <Navigate to="/login" />} />
 
         {/* Padrão */}
-        <Route path="/" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
+        <Route path="/" element={<Navigate to="/inicio" />} />
       </Routes>
     </Router>
   );

@@ -1,9 +1,12 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Apple, CheckCircle2, Calendar, Target } from "lucide-react";
+import { useProtectedAction } from "../hooks/useProtectedAction"; 
+import ModalLoginPrompt from "../components/ModalLoginPrompt";
 
 const Nutricao = () => {
   const navigate = useNavigate();
+  const { showModal, setShowModal, executeProtectedAction, confirmLogin } = useProtectedAction();
 
   // Trava de Scroll Mobile (consistente com o Dashboard)
   useEffect(() => {
@@ -25,6 +28,12 @@ const Nutricao = () => {
     "Acompanhamento focado em resultados reais.",
     "Reeducação alimentar sem dietas restritivas."
   ];
+
+  <ModalLoginPrompt
+  isOpen={showModal}
+  onClose={() => setShowModal(false)}
+  onConfirm={confirmLogin}
+    />
 
   return (
     <div className="fixed inset-0 h-screen w-full bg-gray-50 font-sans flex flex-col overflow-hidden overscroll-behavior-none">
@@ -79,8 +88,7 @@ const Nutricao = () => {
           </div>
 
           {/* BOTÃO DE AÇÃO NA BASE */}
-          <button 
-            onClick={() => navigate("/agendamento")} 
+          <button onClick={() => executeProtectedAction(() => navigate("/agendamento"))}
             className="w-full lg:max-w-[400px] py-4 lg:py-5 bg-[#059669] text-white rounded-2xl lg:rounded-3xl font-bold text-lg shadow-lg active:scale-95 transition-all lg:mx-auto mt-6 shrink-0 flex items-center justify-center gap-3"
           >
             <Calendar size={20} />

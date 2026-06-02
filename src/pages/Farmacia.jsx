@@ -1,9 +1,12 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Thermometer, CheckCircle2, Calendar } from "lucide-react";
+import { useProtectedAction } from "../hooks/useProtectedAction";
+import ModalLoginPrompt from "../components/ModalLoginPrompt";
 
 const Farmacia = () => {
   const navigate = useNavigate();
+  const { showModal, setShowModal, executeProtectedAction, confirmLogin } = useProtectedAction();
 
   useEffect(() => {
     const isMobile = window.innerWidth < 1024;
@@ -24,6 +27,12 @@ const Farmacia = () => {
     "Análise de interações medicamentosas.",
     "Acompanhamento de tratamentos."
   ];
+
+  <ModalLoginPrompt
+  isOpen={showModal}
+  onClose={() => setShowModal(false)}
+  onConfirm={confirmLogin}
+    />
 
   return (
     <div className="fixed inset-0 h-screen w-full bg-gray-50 font-sans flex flex-col overflow-hidden overscroll-behavior-none">
@@ -69,8 +78,7 @@ const Farmacia = () => {
             </div>
           </div>
 
-          <button 
-            onClick={() => navigate("/agendamento")} 
+          <button onClick={() => executeProtectedAction(() => navigate("/agendamento"))} 
             className="w-full py-4 bg-[#059669] text-white rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-all mt-4 mb-2 shrink-0 flex items-center justify-center gap-3"
           >
             <Calendar size={20} /> Agendar Agora
