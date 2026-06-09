@@ -42,7 +42,6 @@ const Inicio = () => {
 
   const numeros = [
     { valor: "10+", label: "Anos de experiência" },
-    { valor: "500+", label: "Pacientes atendidos" },
     { valor: "3", label: "Especialidades" },
     { valor: "98%", label: "Satisfação" },
   ];
@@ -141,7 +140,7 @@ const Inicio = () => {
             <div className="shrink-0">
               <div className="relative">
                 <div className="w-64 h-64 rounded-[40px] overflow-hidden border-4 border-white/20 shadow-2xl bg-emerald-800/40">
-                  <img src="/manuela.png" alt="Manuela Bernardo" className="w-full h-full object-cover" onError={e => { e.target.style.display = 'none'; }} />
+                  <img src="/manuela2.png" alt="Manuela Bernardo" className="w-full h-full object-cover" onError={e => { e.target.style.display = 'none'; }} />
                 </div>
                 <div className="absolute -bottom-3 -right-3 bg-white rounded-2xl px-4 py-2.5 shadow-xl flex items-center gap-2">
                   <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
@@ -156,7 +155,7 @@ const Inicio = () => {
             {/* Foto full-width com altura generosa */}
             <div className="relative w-full" style={{ height: "95vw", maxHeight: "480px", minHeight: "320px" }}>
               <img
-                src="/manuela.png"
+                src="/manuela2.png"
                 alt="Manuela Bernardo"
                 className="w-full h-full object-cover"
                 style={{ objectPosition: "center 20%" }}
@@ -210,7 +209,7 @@ const Inicio = () => {
 
         {/* ── NÚMEROS ── */}
         <section className="bg-white border-b border-gray-100">
-          <div className="max-w-4xl mx-auto px-6 py-8 grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="max-w-4xl mx-auto px-6 py-8 grid grid-cols-3 gap-4">
             {numeros.map((n, i) => (
               <div key={i} className="text-center">
                 <p className="text-3xl lg:text-4xl font-black text-[#059669]">{n.valor}</p>

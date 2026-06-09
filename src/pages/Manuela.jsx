@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { auth } from "../firebase";
 import Header from "./Header";
-import { Apple, Thermometer, PenLine, Heart, BookOpen, Star, ArrowRight, X } from "lucide-react";
+import { Apple, Thermometer, PenLine, Heart, BookOpen, Star, ArrowRight, X, MapPin, Globe } from "lucide-react";
 
-const MANU_PHOTO = "public/manuela.png"
+const MANU_PHOTO = "public/manuela2.png"
 
 // Radar chart personalidade
 const RadarChart = () => {
@@ -141,7 +141,6 @@ const Manuela = () => {
 
   const numeros = [
     { valor: "10+", label: "Anos de experiência" },
-    { valor: "500+", label: "Pacientes atendidos" },
     { valor: "3", label: "Especialidades" },
     { valor: "98%", label: "Satisfação" },
   ];
@@ -189,7 +188,7 @@ const Manuela = () => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
         .manu-page { font-family: 'DM Sans', sans-serif; }
         .manu-page h1, .manu-page h2 { font-family: 'Playfair Display', serif; }
         @keyframes fadeUp {
@@ -200,9 +199,56 @@ const Manuela = () => {
         .fu2 { animation: fadeUp 0.6s ease 0.25s both; }
         .fu3 { animation: fadeUp 0.6s ease 0.4s both; }
         .fu4 { animation: fadeUp 0.6s ease 0.55s both; }
+        .fu5 { animation: fadeUp 0.6s ease 0.7s both; }
         .gallery-img { transition: transform 0.4s ease; }
         .gallery-item:hover .gallery-img { transform: scale(1.05); }
-
+        @keyframes slideBgManu {
+          from { background-position: 0 0; }
+          to   { background-position: -1878px 0; }
+        }
+        .manu-hero-pattern { animation: slideBgManu 52s linear infinite; }
+        .hero-photo-wrap {
+          border-radius: 32px 120px 32px 120px;
+          overflow: hidden;
+        }
+        @media (max-width: 1023px) {
+          .hero-photo-wrap {
+            border-radius: 24px 80px 24px 80px;
+          }
+        }
+        .pill-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: rgba(200,245,100,0.15);
+          border: 1px solid rgba(200,245,100,0.35);
+          color: #c8f564;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          padding: 5px 12px;
+          border-radius: 999px;
+        }
+        .pill-tag .dot {
+          width: 6px; height: 6px;
+          background: #c8f564;
+          border-radius: 50%;
+          display: inline-block;
+        }
+        .spec-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: rgba(255,255,255,0.08);
+          border: 1px solid rgba(255,255,255,0.15);
+          color: rgba(255,255,255,0.85);
+          font-size: 11px;
+          font-weight: 500;
+          padding: 6px 14px;
+          border-radius: 999px;
+          backdrop-filter: blur(6px);
+        }
       `}</style>
 
       <div className="manu-page fixed inset-0 h-screen w-full flex flex-col bg-[#f7f9f7] overflow-hidden">
@@ -211,131 +257,170 @@ const Manuela = () => {
 
         <main className="flex-1 overflow-y-auto">
 
-          {/* ── HERO com background do Login ── */}
-          <section className="relative text-white overflow-hidden" style={{ minHeight: "420px" }}>
-            {/* Gradiente base igual ao Login */}
-            <div className="absolute inset-0" style={{
-              background: "linear-gradient(135deg, #508461 0%, #76AB7A 50%, #A9DC93 100%)"
-            }} />
-
-            {/* Vector.png animado, igual ao Login */}
-            <style>{`
-              @keyframes slideBgManu {
-                from { background-position: 0 0; }
-                to   { background-position: -1878px 0; }
-              }
-              .manu-hero-pattern { animation: slideBgManu 52s linear infinite; }
-            `}</style>
+          {/* ── HERO NOVO: split assimétrico, foto destacada, texto à esquerda ── */}
+          <section
+            className="relative overflow-hidden"
+            style={{
+              background: "linear-gradient(135deg, #3a6448 0%, #4d7a5a 40%, #508461 100%)",
+              minHeight: "520px",
+            }}
+          >
+            {/* Pattern animado de fundo */}
             <div
-              className="manu-hero-pattern absolute inset-0"
+              className="manu-hero-pattern absolute inset-0 pointer-events-none"
               style={{
                 backgroundImage: "url('/Vector.png')",
                 backgroundRepeat: "repeat",
                 backgroundSize: "1878px 1080px",
-                opacity: 0.55,
-                pointerEvents: "none",
-                zIndex: 1,
+                opacity: 0.13,
+                zIndex: 0,
               }}
             />
 
-            {/* Foto da Manu — clipada à metade esquerda, sem texto da marca */}
-            <div className="absolute inset-0 z-10" style={{ overflow: "hidden" }}>
-              {/* Container da foto: só ocupa 58% da largura no desktop */}
-              <div
-                className="absolute inset-y-0 left-0"
-                style={{ width: "58%", overflow: "hidden" }}
-              >
-                <img
-                  src={MANU_PHOTO}
-                  alt="Manuela Bernardo"
-                  className="w-full h-full object-cover"
-                  style={{ objectPosition: "30% 12%", objectFit: "cover", width: "60%", height: "100%" }}
-                />
-              </div>
-              {/* Fundo sólido que cobre o restante (lado direito) */}
-              <div
-                className="absolute inset-y-0 right-0"
-                style={{ left: "42%", background: "transparent" }}
-              />
-              {/* Gradiente de fusão suave sobre a foto */}
-              <div className="absolute inset-0"
-                style={{
-                  background: "linear-gradient(to right, transparent 0%, transparent 35%, rgba(80,132,97,0.7) 50%, rgba(64,108,79,1) 62%, rgba(64,108,79,1) 100%)"
-                }}
-              />
-              {/* Mobile: foto cobre tudo, gradiente de baixo cobre o texto da marca */}
-              <div className="lg:hidden absolute inset-y-0 left-0" style={{ width: "100%", overflow: "hidden" }}>
-                <img
-                  src={MANU_PHOTO}
-                  alt="Manuela Bernardo"
-                  className="w-full h-full object-cover"
-                  style={{ objectPosition: "30% 12%" }}
-                />
-              </div>
-              <div className="lg:hidden absolute inset-0"
-                style={{
-                  background: "linear-gradient(to top, rgba(64,108,79,0.97) 0%, rgba(64,108,79,0.75) 38%, rgba(64,108,79,0.1) 65%, transparent 100%)"
-                }}
-              />
-              {/* Mobile: cobre lado direito onde fica o texto da marca */}
-              <div className="lg:hidden absolute inset-0"
-                style={{
-                  background: "linear-gradient(to right, transparent 0%, transparent 45%, rgba(64,108,79,0.85) 65%, rgba(64,108,79,1) 100%)"
-                }}
-              />
-            </div>
+            {/* ── DESKTOP ── */}
+            <div className="relative z-10 hidden lg:grid max-w-6xl mx-auto px-10" style={{ gridTemplateColumns: "1fr 420px", minHeight: "520px", alignItems: "center", gap: "48px" }}>
 
-            {/* Desktop: texto à direita */}
-            <div className="relative z-20 hidden lg:flex max-w-5xl mx-auto px-8 py-16 items-center justify-end" style={{ minHeight: "420px" }}>
-              <div className="flex flex-col items-start gap-4 max-w-xs">
-                <p className="fu1 text-[#c8f564] text-[11px] font-semibold uppercase tracking-[0.2em]">
-                  Conheça a profissional
-                </p>
-                <h1 className="fu2 text-5xl font-black leading-tight">
-                  Manuela<br />
-                  <span className="text-[#c8f564]">Bernardo</span>
+              {/* Coluna esquerda: texto */}
+              <div className="flex flex-col gap-5 py-16">
+                {/* Eyebrow pill */}
+                <div className="fu1">
+                  <span className="pill-tag"><span className="dot" />Conheça a profissional</span>
+                </div>
+
+                {/* Headline */}
+                <h1 className="fu2 text-white leading-[1.05]" style={{ fontSize: "clamp(2.6rem, 4vw, 3.8rem)", fontFamily: "'Playfair Display', serif", fontWeight: 900 }}>
+                  Saúde que cuida<br />
+                  <em style={{ fontStyle: "italic", color: "#c8f564" }}>de você por inteiro.</em>
                 </h1>
-                <p className="fu3 text-white/80 text-sm leading-relaxed">
-                  Profissional de saúde com visão integrativa, unindo Nutrição, Farmácia e Acupuntura
-                  para cuidar de você de forma completa.
+
+                {/* Subtext */}
+                <p className="fu3 text-white/70 leading-relaxed max-w-md" style={{ fontSize: "15px" }}>
+                  Manuela Bernardo une Nutrição, Farmácia e Acupuntura numa abordagem integrativa única — personalizada para a sua história.
                 </p>
-                <div className="fu4 flex items-center gap-3 mt-1 flex-wrap">
+
+                {/* Especialidades chips */}
+                <div className="fu4 flex flex-wrap gap-2">
+                  {["Nutrição", "Fármacia", "Acupuntura"].map(s => (
+                    <span key={s} className="spec-chip">{s}</span>
+                  ))}
+                </div>
+
+                {/* CTA */}
+                <div className="fu5 flex flex-col gap-3 mt-2">
                   <a
                     href="/agendamento"
-                    className="inline-flex items-center gap-2 bg-[#c8f564] text-[#064e3b] font-bold px-6 py-3 rounded-xl hover:bg-lime-300 transition-all shadow-lg hover:-translate-y-0.5"
+                    className="inline-flex items-center gap-2 font-bold px-7 py-3.5 rounded-2xl transition-all shadow-xl hover:-translate-y-0.5 active:scale-95 self-start"
+                    style={{ background: "#c8f564", color: "#1a3d28", fontSize: "14px" }}
                   >
                     Agendar consulta <ArrowRight size={15} />
                   </a>
-                  <span className="bg-white/10 backdrop-blur-sm text-white text-[11px] font-semibold px-3 py-1.5 rounded-full border border-white/20">
-                    ✦ Saúde Integrativa
-                  </span>
+                  <div className="flex flex-wrap gap-3">
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", gap: "6px",
+                      background: "rgba(200,245,100,0.12)", border: "1px solid rgba(200,245,100,0.3)",
+                      color: "#c8f564", fontSize: "11px", fontWeight: 600,
+                      padding: "5px 12px", borderRadius: "999px"
+                    }}>
+                      <MapPin size={12} strokeWidth={2.5} /> Presencial — Natal, RN
+                    </span>
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", gap: "6px",
+                      background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.18)",
+                      color: "rgba(255,255,255,0.75)", fontSize: "11px", fontWeight: 600,
+                      padding: "5px 12px", borderRadius: "999px"
+                    }}>
+                      <Globe size={12} strokeWidth={2.5} /> Online — Todo o Brasil
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Coluna direita: foto com shape arredondada + sombra */}
+              <div className="fu2 relative flex items-end justify-center" style={{ height: "520px" }}>
+                {/* Glow de fundo da foto */}
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2" style={{
+                  width: "340px", height: "340px",
+                  background: "radial-gradient(circle, rgba(200,245,100,0.18) 0%, transparent 70%)",
+                  borderRadius: "50%",
+                }} />
+                {/* Container da foto */}
+                <div
+                  className="hero-photo-wrap relative"
+                  style={{
+                    width: "340px",
+                    height: "490px",
+                    boxShadow: "0 32px 80px rgba(0,0,0,0.35)",
+                    border: "3px solid rgba(200,245,100,0.25)",
+                  }}
+                >
+                  <img
+                    src={MANU_PHOTO}
+                    alt="Manuela Bernardo"
+                    style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 8%" }}
+                  />
+                  {/* Overlay sutil no rodapé da foto */}
+                  <div style={{
+                    position: "absolute", bottom: 0, left: 0, right: 0, height: "120px",
+                    background: "linear-gradient(to top, rgba(58,100,72,0.6) 0%, transparent 100%)"
+                  }} />
+                </div>
+                {/* Badge flutuante: CRM */}
+                <div className="absolute bottom-10 left-0" style={{
+                  background: "rgba(255,255,255,0.12)",
+                  backdropFilter: "blur(12px)",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  borderRadius: "16px",
+                  padding: "10px 16px",
+                }}>
+                  <p style={{ color: "#c8f564", fontSize: "10px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Nutricionista</p>
+                  <p style={{ color: "white", fontSize: "13px", fontWeight: 600 }}>Manuela Bernardo</p>
+                  <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "10px" }}>+10 anos · Saúde Integrativa</p>
                 </div>
               </div>
             </div>
 
-            {/* Mobile: texto embaixo */}
-            <div className="relative z-20 lg:hidden flex flex-col justify-end px-5 pb-8" style={{ minHeight: "420px" }}>
-              <div className="flex flex-col items-start gap-3">
-                <p className="fu1 text-[#c8f564] text-[10px] font-semibold uppercase tracking-[0.2em]">
-                  Conheça a profissional
-                </p>
-                <h1 className="fu2 text-4xl font-black leading-tight">
-                  Manuela<br />
-                  <span className="text-[#c8f564]">Bernardo</span>
+            {/* ── MOBILE ── */}
+            <div className="relative z-10 lg:hidden flex flex-col">
+              {/* Foto com texto sobreposto */}
+              <div style={{ position: "relative" }}>
+                <img
+                  src={MANU_PHOTO}
+                  alt="Manuela Bernardo"
+                  style={{ width: "100%", height: "380px", objectFit: "cover", objectPosition: "50% 8%", display: "block" }}
+                />
+                {/* Gradiente mais alto e suave, começa no meio da foto */}
+                <div style={{
+                  position: "absolute", bottom: 0, left: 0, right: 0, height: "220px",
+                  background: "linear-gradient(to top, #3a6448 0%, #3a6448 20%, rgba(58,100,72,0.85) 55%, transparent 100%)"
+                }} />
+                {/* Pill tag sobreposta na parte inferior da foto */}
+                <div className="fu1 absolute px-5" style={{ bottom: "24px", left: 0 }}>
+                  <span className="pill-tag"><span className="dot" />Conheça a profissional</span>
+                </div>
+              </div>
+
+              {/* Texto embaixo, sem gap visual com a foto */}
+              <div className="flex flex-col gap-4 px-5 pb-9 pt-4" style={{ background: "#3a6448" }}>
+                <h1 className="fu2 text-white leading-tight" style={{ fontSize: "2.1rem", fontFamily: "'Playfair Display', serif", fontWeight: 900 }}>
+                  Saúde que cuida<br />
+                  <em style={{ fontStyle: "italic", color: "#c8f564" }}>de você por inteiro.</em>
                 </h1>
-                <p className="fu3 text-white/80 text-[13px] leading-relaxed max-w-xs">
-                  Nutrição, Farmácia e Acupuntura — cuidado completo para você.
+                <p className="fu3 text-white/70 text-sm leading-relaxed">
+                  Nutrição, Farmácia e Acupuntura — cuidado personalizado para você.
                 </p>
-                <div className="fu4 flex items-center gap-2 flex-wrap mt-1">
+                <div className="fu4 flex flex-wrap gap-2">
+                  {["Nutrição", "Farmácia", "Acupuntura"].map(s => (
+                    <span key={s} className="spec-chip" style={{ fontSize: "10px" }}>{s}</span>
+                  ))}
+                </div>
+                <div className="fu5">
                   <a
                     href="/agendamento"
-                    className="inline-flex items-center gap-2 bg-[#c8f564] text-[#064e3b] font-bold px-5 py-2.5 rounded-xl text-sm hover:bg-lime-300 transition-all shadow-lg"
+                    className="inline-flex items-center gap-2 font-bold px-6 py-3 rounded-xl transition-all shadow-lg active:scale-95"
+                    style={{ background: "#c8f564", color: "#1a3d28", fontSize: "13px" }}
                   >
                     Agendar consulta <ArrowRight size={14} />
                   </a>
-                  <span className="bg-white/10 backdrop-blur-sm text-white text-[10px] font-semibold px-2.5 py-1.5 rounded-full border border-white/20">
-                    ✦ Saúde Integrativa
-                  </span>
                 </div>
               </div>
             </div>
@@ -343,7 +428,7 @@ const Manuela = () => {
 
                     {/* NÚMEROS */}
           <section className="bg-white border-b border-gray-100">
-            <div className="max-w-4xl mx-auto px-6 py-7 grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="max-w-4xl mx-auto px-6 py-7 grid grid-cols-3 gap-4">
               {numeros.map((n, i) => (
                 <div key={i} className="text-center">
                   <p className="text-3xl lg:text-4xl font-black text-[#059669]">{n.valor}</p>
@@ -372,7 +457,7 @@ const Manuela = () => {
               </div>
               <div className="lg:w-1/2 grid grid-cols-1 gap-2.5 w-full">
                 {[
-                  { icon: <Apple size={16} />, texto: "Graduada em Nutrição — USP" },
+                  { icon: <Apple size={16} />, texto: "Graduada em Nutrição" },
                   { icon: <PenLine size={16} />, texto: "Especialista em Acupuntura Clínica" },
                   { icon: <Thermometer size={16} />, texto: "Farmacêutica — manipulação e clínica" },
                   { icon: <Heart size={16} />, texto: "+10 anos em saúde integrativa" },
