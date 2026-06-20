@@ -14,6 +14,7 @@ import Adm from "./pages/Adm";
 import Contatos from "./pages/Contatos";
 import Manuela from "./pages/Manuela";
 import Inicio from "./pages/Inicio";
+import PreConsulta from "./pages/PreConsulta";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -49,6 +50,7 @@ function App() {
         <Route path="/farmacia" element={<Farmacia />} />
 
         {/* Rotas protegidas (requerem login) */}
+        <Route path="/pre-consulta" element={user ? <PreConsulta /> : <Navigate to="/login" />} />
         <Route path="/agendamento" element={user ? <Agendamento /> : <Navigate to="/login" />} />
         <Route path="/meus-dados" element={user ? <MeusDados /> : <Navigate to="/login" />} />
         <Route path="/perfil" element={user ? <Perfil /> : <Navigate to="/login" />} />

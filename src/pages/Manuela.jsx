@@ -145,45 +145,17 @@ const Manuela = () => {
     { valor: "98%", label: "Satisfação" },
   ];
 
-  // ── GALERIA: fotos reais de espaços de saúde em Natal, RN
-  // Usando fotos do Google Places via place_id ou Unsplash temático
+  // ── GALERIA: fotos reais do IPICS GENOBIE ──
   const fotos = [
-    {
-      // Nutrição — consultório em Natal (Tyrol Business Center)
-      src: `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=placeholder&key=AIzaSy`,
-      // fallback com Unsplash temático real
-      fallback: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80",
-      alt: "Consultório de Nutrição — Natal, RN",
-      label: "Nutrição",
-    },
-    {
-      fallback: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800&q=80",
-      alt: "Farmácia de Manipulação — Natal, RN",
-      label: "Farmácia",
-    },
-    {
-      fallback: "https://images.unsplash.com/photo-1512290923902-8a9f81dc236c?w=800&q=80",
-      alt: "Sessão de Acupuntura — Natal, RN",
-      label: "Acupuntura",
-    },
-    {
-      fallback: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=800&q=80",
-      alt: "Atendimento integrado — Natal, RN",
-      label: "Atendimento",
-    },
-    {
-      fallback: "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?w=800&q=80",
-      alt: "Consulta nutricional — Natal, RN",
-      label: "Consulta",
-    },
-    {
-      fallback: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800&q=80",
-      alt: "Bem-estar e saúde — Natal, RN",
-      label: "Bem-estar",
-    },
+    { src: "/ipics1.webp", alt: "Consultório IPICS GENOBIE — sala principal com mesa e estantes", label: "Consultório" },
+    { src: "/ipics2.webp", alt: "Sala de atendimento — maca e cadeiras azuis", label: "Atendimento" },
+    { src: "/ipics3.png", alt: "Sala de espera — poltronas verdes e mesa de madeira", label: "Recepção" },
+    { src: "/ipics4.png", alt: "Fachada — IPICS GENOBIE Natal, RN", label: "Clínica" },
+    { src: "/ipics5.png", alt: "Sala de consulta — mesa e cadeira bege", label: "Sala de consulta" },
+    { src: "/ipics6.png", alt: "Ambiente terapêutico — IPICS GENOBIE", label: "Terapia" },
   ];
 
-  const getFotoSrc = (foto) => foto.src && !foto.src.includes("placeholder") ? foto.src : foto.fallback;
+  const getFotoSrc = (foto) => foto.src;
 
   return (
     <>
@@ -442,18 +414,27 @@ const Manuela = () => {
           <section className="max-w-4xl mx-auto px-6 py-12 lg:py-14">
             <div className="flex flex-col lg:flex-row gap-10 items-start">
               <div className="lg:w-1/2">
-                <p className="text-emerald-600 text-[11px] font-semibold uppercase tracking-[0.2em] mb-3">Minha história</p>
+                <p className="text-emerald-600 text-[16px] font-semibold uppercase tracking-[0.2em] mb-3">Quem é Manuela?</p>
                 <h2 className="text-2xl lg:text-3xl font-black text-[#064e3b] leading-snug mb-5">
                   Cuidar de pessoas<br />é minha vocação
                 </h2>
                 <p className="text-gray-500 leading-relaxed text-sm mb-3">
-                  Formada em Nutrição e especialista em Acupuntura Clínica, desenvolvi ao longo
-                  de mais de 10 anos uma abordagem única que combina ciência moderna com práticas integrativas.
+                  Sou Manuela Bernardo, Nutricionista, Farmacêutica e Acupunturista com <span style={{ color: '#197a60', fontWeight: 'bold' }}>sólida
+                  formação acadêmica e experiência prática dedicada ao cuidado da saúde.</span>
                 </p>
-                <p className="text-gray-500 leading-relaxed text-sm">
-                  Acredito que cada paciente é único. Por isso, construo junto com você um plano
-                  personalizado que respeita sua história, seus limites e seus objetivos.
+                <p className="text-gray-500 leading-relaxed text-sm mb-3">
+                  Atuo com uma abordagem integrativa que <span style={{ color: '#197a60', fontWeight: 'bold'}}>une nutrição clínica, farmacologia e
+                  fitoterapia, oferecendo orientação terapêutica individualizada para promover
+                  equilíbrio metabólico, saúde gastrointestinal e bem-estar geral.</span>
                 </p>
+                <p className="text-gray-500 leading-relaxed text-sm mb-3">
+                Minha trajetória inclui <span style={{ color: '#197a60', fontWeight: 'bold' }}>mais de uma década no ensino superior, formando
+                profissionais da saúde e orientando pesquisas, além de ampla experiência na
+                indústria farmacêutica.</span> Atualmente, concentro minha atuação no <span style={{ color: '#197a60', fontWeight: 'bold' }}>atendimento
+                clínico personalizado</span>, desenvolvendo planos alimentares baseados em
+                evidências científicas e <span style={{ color: '#197a60', fontWeight: 'bold' }}>adaptados às necessidades de cada paciente.</span>
+                </p>
+                
               </div>
               <div className="lg:w-1/2 grid grid-cols-1 gap-2.5 w-full">
                 {[

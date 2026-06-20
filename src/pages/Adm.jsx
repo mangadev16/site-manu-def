@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { db, auth } from "../firebase";
-import { collection, onSnapshot, doc, updateDoc, arrayUnion } from "firebase/firestore";
+import { collection, onSnapshot, doc, updateDoc, arrayUnion, getDoc } from "firebase/firestore";
 import { 
   LogOut, Calendar as CalendarIcon, Clock, X, ChevronLeft, ChevronRight, RotateCcw, 
   MessageCircle, ChevronRight as ChevronIcon, Users, BarChart3, CheckCircle2, 
-  AlertCircle, LayoutDashboard, Menu, Search, Filter, ArrowUpDown, History, ChevronDown, Mail
+  AlertCircle, LayoutDashboard, Menu, Search, Filter, ArrowUpDown, History, ChevronDown, Mail, ClipboardList
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -34,6 +34,8 @@ const Adm = () => {
   const [statusFiltro, setStatusFiltro] = useState("todos");
   const [clienteSelecionado, setClienteSelecionado] = useState(null);
   const [clienteFicha, setClienteFicha] = useState(null);
+  const [preConsultaCliente, setPreConsultaCliente] = useState(null);
+  const [abaFicha, setAbaFicha] = useState("historico"); // "historico" | "preconsulta"
   const [modalNovoHistorico, setModalNovoHistorico] = useState(false);
   const [modalLogOut, setModalLogOut] = useState(false);
   const [novoServico, setNovoServico] = useState("");
@@ -89,6 +91,10 @@ const Adm = () => {
         const total = cAtualizado.historico?.reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0) || 0;
         setClienteFicha({ ...cAtualizado, totalGeral: total });
       }
+      // Buscar pré-consulta do cliente
+      getDoc(doc(db, "preConsulta", clienteSelecionado.id)).then((snap) => {
+        setPreConsultaCliente(snap.exists() ? snap.data() : null);
+      });
     }
   }, [clientesTodos, clienteSelecionado]);
 
@@ -430,27 +436,123 @@ const Adm = () => {
                         <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100"><p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Total Já Pago</p><p className="font-black text-slate-700 text-lg mt-0.5">R$ {clienteFicha.totalGeral || 0},00</p></div>
                       </div>
                     </div>
-                    <div>
-                      <h4 className="font-black text-slate-400 text-[9px] uppercase border-b border-slate-100 pb-2 mb-2">Histórico</h4>
-                      <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                        {clienteFicha.historico?.length > 0 ? (
-                          clienteFicha.historico.map((h, i) => (
-                            <div key={i} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex justify-between items-center text-xs">
-                              <div>
-                                <p className="font-bold text-slate-800">{h.servico} <span className="text-[10px] text-purple-600">({h.duracao || "1h"})</span></p>
-                                <p className="text-[10px] text-slate-400 mt-0.5">{h.data} • {h.horario} • <strong className="text-slate-700">R$ {h.valor},00</strong></p>
+
+                    {/* Abas: Histórico | Pré-consulta */}
+                    <div className="flex gap-1 bg-slate-50 p-1 rounded-xl border border-slate-100">
+                      <button
+                        onClick={() => setAbaFicha("historico")}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all"
+                        style={abaFicha === "historico" ? { backgroundColor: ROXO_DESTAQUE, color: "white" } : { color: "#64748b" }}
+                      >
+                        <History size={12} /> Histórico
+                      </button>
+                      <button
+                        onClick={() => setAbaFicha("preconsulta")}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all"
+                        style={abaFicha === "preconsulta" ? { backgroundColor: ROXO_DESTAQUE, color: "white" } : { color: "#64748b" }}
+                      >
+                        <ClipboardList size={12} /> Pré-consulta
+                        {preConsultaCliente && <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full ml-0.5" />}
+                      </button>
+                    </div>
+
+                    {/* Aba Histórico */}
+                    {abaFicha === "historico" && (
+                      <div>
+                        <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                          {clienteFicha.historico?.length > 0 ? (
+                            clienteFicha.historico.map((h, i) => (
+                              <div key={i} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex justify-between items-center text-xs">
+                                <div>
+                                  <p className="font-bold text-slate-800">{h.servico} <span className="text-[10px] text-purple-600">({h.duracao || "1h"})</span></p>
+                                  <p className="text-[10px] text-slate-400 mt-0.5">{h.data} • {h.horario} • <strong className="text-slate-700">R$ {h.valor},00</strong></p>
+                                </div>
+                                <span className="text-[8px] font-black uppercase px-2 py-1 rounded-md" style={{ backgroundColor: h.status === "concluido" ? LILAS_SUAVE : "#fee2e2", color: h.status === "concluido" ? TEXTO_LILAS : "#b91c1c" }}>
+                                  {h.status === "concluido" ? "OK" : h.status}
+                                </span>
                               </div>
-                              <span className="text-[8px] font-black uppercase px-2 py-1 rounded-md" style={{ backgroundColor: h.status === "concluido" ? LILAS_SUAVE : "#fee2e2", color: h.status === "concluido" ? TEXTO_LILAS : "#b91c1c" }}>
-                                {h.status === "concluido" ? "OK" : h.status}
-                              </span>
-                            </div>
-                          ))
+                            ))
+                          ) : (
+                            <p className="text-xs text-slate-400 py-4 text-center">Nenhum registro.</p>
+                          )}
+                        </div>
+                        <button onClick={() => setModalNovoHistorico(true)} className="w-full mt-3 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl transition">Lançar Atendimento</button>
+                      </div>
+                    )}
+
+                    {/* Aba Pré-consulta */}
+                    {abaFicha === "preconsulta" && (
+                      <div className="max-h-[500px] overflow-y-auto pr-1 space-y-3">
+                        {preConsultaCliente ? (
+                          <>
+                            {preConsultaCliente.enviadoEm && (
+                              <p className="text-[10px] text-slate-400 font-bold uppercase">
+                                Enviado em: {new Date(preConsultaCliente.enviadoEm?.toDate?.() || preConsultaCliente.enviadoEm).toLocaleDateString("pt-BR")}
+                              </p>
+                            )}
+                            {[
+                              { label: "Sexo", valor: preConsultaCliente.sexo },
+                              { label: "Objetivos", valor: Array.isArray(preConsultaCliente.objetivos) ? preConsultaCliente.objetivos.join(", ") : preConsultaCliente.objetivos },
+                              { label: "Objetivo extra", valor: preConsultaCliente.objetivoOutro },
+                              { label: "Descrição do objetivo", valor: preConsultaCliente.descricaoObjetivo },
+                              { label: "Peso atual", valor: preConsultaCliente.pesoAtual ? `${preConsultaCliente.pesoAtual} kg` : null },
+                              { label: "Altura", valor: preConsultaCliente.altura ? `${preConsultaCliente.altura} cm` : null },
+                              { label: "Nutricionista antes", valor: preConsultaCliente.nutricionistaAntes },
+                              { label: "Tentou mudar hábitos", valor: preConsultaCliente.tentouMudarHabitos },
+                              { label: "Dificuldade de mudança", valor: preConsultaCliente.dificuldadeMudanca },
+                              { label: "Problema de saúde", valor: preConsultaCliente.problemaSaude },
+                              { label: "Histórico familiar", valor: preConsultaCliente.historicoDencas },
+                              { label: "Medicamentos", valor: preConsultaCliente.medicamentos },
+                              { label: "Exames recentes", valor: preConsultaCliente.examesRecentes },
+                              { label: "Carga horária trabalho", valor: preConsultaCliente.cargaHoraria },
+                              { label: "Rotina de trabalho", valor: Array.isArray(preConsultaCliente.rotinaTrab) ? preConsultaCliente.rotinaTrab.join(", ") : preConsultaCliente.rotinaTrab },
+                              { label: "Disposição diária", valor: preConsultaCliente.disposicao ? `${preConsultaCliente.disposicao}/5` : null },
+                              { label: "Sintomas frequentes", valor: Array.isArray(preConsultaCliente.sintomas) ? preConsultaCliente.sintomas.join(", ") : preConsultaCliente.sintomas },
+                              { label: "Qualidade do sono", valor: Array.isArray(preConsultaCliente.qualidadeSono) ? preConsultaCliente.qualidadeSono.join(", ") : preConsultaCliente.qualidadeSono },
+                              { label: "Horário sono/acordar", valor: preConsultaCliente.horarioSono },
+                              { label: "Nível de estresse", valor: preConsultaCliente.nivelEstresse ? `${preConsultaCliente.nivelEstresse}/5` : null },
+                              { label: "Reação ao estresse", valor: Array.isArray(preConsultaCliente.reacaoEstresse) ? preConsultaCliente.reacaoEstresse.join(", ") : preConsultaCliente.reacaoEstresse },
+                              { label: "Memória", valor: preConsultaCliente.memoria },
+                              { label: "Atividade física", valor: preConsultaCliente.praticaAtividade },
+                              { label: "Qual atividade", valor: preConsultaCliente.qualAtividade },
+                              { label: "Frequência atividade", valor: preConsultaCliente.frequenciaAtividade },
+                              { label: "Alimentação", valor: preConsultaCliente.alimentacao },
+                              { label: "Horário de fome", valor: Array.isArray(preConsultaCliente.horarioFome) ? preConsultaCliente.horarioFome.join(", ") : preConsultaCliente.horarioFome },
+                              { label: "Alergia alimentar", valor: preConsultaCliente.alergiaAlimentar },
+                              { label: "Consumo de água", valor: preConsultaCliente.consumoAgua },
+                              { label: "Álcool", valor: preConsultaCliente.alcool },
+                              { label: "Fumante", valor: preConsultaCliente.fumante },
+                              { label: "Delivery/restaurante", valor: preConsultaCliente.restauranteFreq ? `${preConsultaCliente.restauranteFreq}x/semana` : null },
+                              { label: "Suplementação", valor: preConsultaCliente.suplementacao },
+                              { label: "Qual suplemento", valor: preConsultaCliente.qualSuplemento },
+                              { label: "Intestino", valor: Array.isArray(preConsultaCliente.intestino) ? preConsultaCliente.intestino.join(", ") : preConsultaCliente.intestino },
+                              { label: "Sintomas corporais", valor: Array.isArray(preConsultaCliente.sintomasCorporais) ? preConsultaCliente.sintomasCorporais.join(", ") : preConsultaCliente.sintomasCorporais },
+                              { label: "Ciclo menstrual", valor: preConsultaCliente.cicloRegular },
+                              { label: "Fluxo", valor: preConsultaCliente.fluxo },
+                              { label: "Cólicas", valor: preConsultaCliente.colicasIntensas },
+                              { label: "Endometriose", valor: preConsultaCliente.endometriose },
+                              { label: "SOP", valor: preConsultaCliente.sop },
+                              { label: "TPM", valor: preConsultaCliente.sintomasTPM },
+                              { label: "Contraceptivo", valor: preConsultaCliente.contraceptivo },
+                              { label: "Motivação", valor: preConsultaCliente.motivacao ? `${preConsultaCliente.motivacao}/5` : null },
+                              { label: "Importância da mudança", valor: preConsultaCliente.importancia },
+                            ]
+                              .filter((item) => item.valor && item.valor !== "" && item.valor !== "Não" && item.valor.length > 0)
+                              .map((item, i) => (
+                                <div key={i} className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                                  <p className="text-[9px] text-slate-400 uppercase font-black tracking-wider mb-0.5">{item.label}</p>
+                                  <p className="text-xs font-semibold text-slate-700">{item.valor}</p>
+                                </div>
+                              ))}
+                          </>
                         ) : (
-                          <p className="text-xs text-slate-400 py-4 text-center">Nenhum registro.</p>
+                          <div className="py-8 text-center text-slate-400 text-xs">
+                            <ClipboardList className="mx-auto mb-2 text-slate-300" size={28} />
+                            Este paciente ainda não preencheu o questionário de pré-consulta.
+                          </div>
                         )}
                       </div>
-                      <button onClick={() => setModalNovoHistorico(true)} className="w-full mt-3 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl transition">Lançar Atendimento</button>
-                    </div>
+                    )}
                   </div>
                 ) : (
                   <div className="py-12 text-center text-slate-400 text-xs"><History className="mx-auto mb-2 text-slate-300" size={28} /> Selecione um cliente para ver a ficha completa.</div>

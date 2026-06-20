@@ -1,10 +1,13 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Apple, Thermometer, PenLine, ArrowRight, Star, Heart, ShieldCheck, CalendarCheck } from "lucide-react";
+import { auth, db } from "../firebase";
+import { doc, getDoc } from "firebase/firestore";
 import { useProtectedAction } from "../hooks/useProtectedAction";
 import ModalLoginPrompt from "../components/ModalLoginPrompt";
+import ModalPreConsulta from "../components/ModalPreConsulta";
 
-const MSG_AGENDAR = {
+const MSG_LOGIN = {
   title: "Login necessário",
   message: "Para agendar uma consulta você precisa estar logado. Leva menos de 1 minuto!",
 };
@@ -12,6 +15,19 @@ const MSG_AGENDAR = {
 const Inicio = () => {
   const navigate = useNavigate();
   const { showModal, setShowModal, modalConfig, executeProtectedAction, confirmLogin } = useProtectedAction();
+  const [showPreConsulta, setShowPreConsulta] = useState(false);
+
+  const handleAgendar = () => {
+    executeProtectedAction(async () => {
+      const user = auth.currentUser;
+      const snap = await getDoc(doc(db, "preConsulta", user.uid));
+      if (!snap.exists()) {
+        setShowPreConsulta(true);
+      } else {
+        navigate("/agendamento");
+      }
+    }, MSG_LOGIN);
+  };
 
   const servicos = [
     {
@@ -42,6 +58,7 @@ const Inicio = () => {
 
   const numeros = [
     { valor: "10+", label: "Anos de experiência" },
+    { valor: "500+", label: "Pacientes atendidos" },
     { valor: "3", label: "Especialidades" },
     { valor: "98%", label: "Satisfação" },
   ];
@@ -124,7 +141,7 @@ const Inicio = () => {
               </p>
               <div className="flex flex-row gap-3 fade-up-3">
                 <button
-                  onClick={() => executeProtectedAction(() => navigate("/agendamento"), MSG_AGENDAR)}
+                  onClick={handleAgendar}
                   className="inline-flex items-center justify-center gap-2 bg-[#c8f564] text-[#064e3b] font-bold px-7 py-3.5 rounded-xl shadow-lg hover:bg-lime-300 transition-all active:scale-95 text-sm"
                 >
                   Agendar consulta <ArrowRight size={15} />
@@ -140,7 +157,7 @@ const Inicio = () => {
             <div className="shrink-0">
               <div className="relative">
                 <div className="w-64 h-64 rounded-[40px] overflow-hidden border-4 border-white/20 shadow-2xl bg-emerald-800/40">
-                  <img src="/manuela2.png" alt="Manuela Bernardo" className="w-full h-full object-cover" onError={e => { e.target.style.display = 'none'; }} />
+                  <img src="/manuela.png" alt="Manuela Bernardo" className="w-full h-full object-cover" onError={e => { e.target.style.display = 'none'; }} />
                 </div>
                 <div className="absolute -bottom-3 -right-3 bg-white rounded-2xl px-4 py-2.5 shadow-xl flex items-center gap-2">
                   <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
@@ -155,7 +172,7 @@ const Inicio = () => {
             {/* Foto full-width com altura generosa */}
             <div className="relative w-full" style={{ height: "95vw", maxHeight: "480px", minHeight: "320px" }}>
               <img
-                src="/manuela2.png"
+                src="/manuela.png"
                 alt="Manuela Bernardo"
                 className="w-full h-full object-cover"
                 style={{ objectPosition: "center 20%" }}
@@ -191,7 +208,7 @@ const Inicio = () => {
               </p>
               <div className="flex flex-row gap-3 fade-up-3">
                 <button
-                  onClick={() => executeProtectedAction(() => navigate("/agendamento"), MSG_AGENDAR)}
+                  onClick={handleAgendar}
                   className="flex-1 inline-flex items-center justify-center gap-2 bg-[#c8f564] text-[#064e3b] font-bold px-5 py-3 rounded-xl shadow-lg hover:bg-lime-300 transition-all active:scale-95 text-sm"
                 >
                   Agendar consulta <ArrowRight size={14} />
@@ -209,7 +226,7 @@ const Inicio = () => {
 
         {/* ── NÚMEROS ── */}
         <section className="bg-white border-b border-gray-100">
-          <div className="max-w-4xl mx-auto px-6 py-8 grid grid-cols-3 gap-4">
+          <div className="max-w-4xl mx-auto px-6 py-8 grid grid-cols-2 lg:grid-cols-4 gap-4">
             {numeros.map((n, i) => (
               <div key={i} className="text-center">
                 <p className="text-3xl lg:text-4xl font-black text-[#059669]">{n.valor}</p>
@@ -306,7 +323,7 @@ const Inicio = () => {
               Agende sua consulta e comece uma jornada de saúde personalizada, integrativa e com resultados reais.
             </p>
             <button
-              onClick={() => executeProtectedAction(() => navigate("/agendamento"), MSG_AGENDAR)}
+              onClick={handleAgendar}
               className="inline-flex items-center gap-2 bg-[#c8f564] text-[#064e3b] font-bold px-9 py-3.5 rounded-xl shadow-lg hover:bg-lime-300 transition-all hover:-translate-y-0.5 active:scale-95 text-sm"
             >
               Agendar consulta <ArrowRight size={15} />
@@ -322,6 +339,11 @@ const Inicio = () => {
         onConfirm={confirmLogin}
         title={modalConfig.title}
         message={modalConfig.message}
+      />
+
+      <ModalPreConsulta
+        isOpen={showPreConsulta}
+        onClose={() => setShowPreConsulta(false)}
       />
     </>
   );

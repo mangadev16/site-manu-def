@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
-import { Apple, Activity, Thermometer, PenLine } from "lucide-react";
+import { Apple, Thermometer, PenLine } from "lucide-react";
 import Header from "./Header";
 import { useProtectedAction } from "../hooks/useProtectedAction";
 import ModalLoginPrompt from "../components/ModalLoginPrompt";
@@ -9,13 +9,11 @@ import ModalLoginPrompt from "../components/ModalLoginPrompt";
 const Dashboard = () => {
   const navigate = useNavigate();
   const nomeCompleto = auth.currentUser?.displayName || "Visitante";
-  const nomeUsuario = nomeCompleto.includes("|")
-    ? nomeCompleto.split("|")[0]
-    : nomeCompleto;
+  const nomeUsuario = nomeCompleto.includes("|") ? nomeCompleto.split("|")[0] : nomeCompleto;
 
   const { showModal, setShowModal, modalConfig, executeProtectedAction, confirmLogin } = useProtectedAction();
 
-  const MSG_AGENDAR = {
+  const MSG_LOGIN = {
     title: "Login necessário",
     message: "Para agendar uma consulta você precisa estar logado. Leva menos de 1 minuto!",
   };
@@ -23,38 +21,20 @@ const Dashboard = () => {
   useEffect(() => {
     const isMobile = window.innerWidth < 1024;
     if (isMobile) {
-      document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.width = '100%';
+      document.body.style.overflow = "hidden";
+      document.body.style.position = "fixed";
+      document.body.style.width = "100%";
     }
     return () => {
-      document.body.style.overflow = 'auto';
-      document.body.style.position = 'static';
+      document.body.style.overflow = "auto";
+      document.body.style.position = "static";
     };
   }, []);
 
   const servicos = [
-    {
-      id: 1,
-      nome: "Nutrição",
-      desc: "Planos alimentares personalizados.",
-      icon: <Apple className="text-emerald-600" size={24} />,
-      path: "/nutricao",
-    },
-    {
-      id: 2,
-      nome: "Acupuntura",
-      desc: "Equilíbrio e alívio de dores.",
-      icon: <PenLine className="text-emerald-600" size={24} />,
-      path: "/acupuntura",
-    },
-    {
-      id: 3,
-      nome: "Farmácia",
-      desc: "Orientação farmacêutica e fórmulas.",
-      icon: <Thermometer className="text-emerald-600" size={24} />,
-      path: "/farmacia",
-    },
+    { id: 1, nome: "Nutrição",   desc: "Planos alimentares personalizados.", icon: <Apple className="text-emerald-600" size={24} />,        path: "/nutricao" },
+    { id: 2, nome: "Acupuntura", desc: "Equilíbrio e alívio de dores.",       icon: <PenLine className="text-emerald-600" size={24} />,      path: "/acupuntura" },
+    { id: 3, nome: "Farmácia",   desc: "Orientação farmacêutica e fórmulas.", icon: <Thermometer className="text-emerald-600" size={24} />,  path: "/farmacia" },
   ];
 
   return (
@@ -68,22 +48,12 @@ const Dashboard = () => {
               Nossos Serviços
             </h2>
 
-            {/* Cards — no mobile ocupa o espaço disponível sem overflow */}
             <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-3 gap-3 lg:gap-8 w-full">
               {servicos.map((s) => (
                 <div
                   key={s.id}
                   onClick={() => navigate(s.path)}
-                  className="
-                    flex-1 min-h-0
-                    bg-white rounded-[25px] lg:rounded-[40px]
-                    border-2 border-emerald-100 shadow-sm
-                    flex flex-row lg:flex-col
-                    items-center lg:justify-center lg:text-center
-                    gap-4 lg:gap-6
-                    px-5 lg:p-8
-                    hover:shadow-md transition-all cursor-pointer
-                  "
+                  className="flex-1 min-h-0 bg-white rounded-[25px] lg:rounded-[40px] border-2 border-emerald-100 shadow-sm flex flex-row lg:flex-col items-center lg:justify-center lg:text-center gap-4 lg:gap-6 px-5 lg:p-8 hover:shadow-md transition-all cursor-pointer"
                 >
                   <div className="bg-emerald-50 w-12 h-12 lg:w-20 lg:h-20 rounded-2xl lg:rounded-[25px] flex items-center justify-center shrink-0 lg:mx-auto">
                     {s.icon}
@@ -96,9 +66,8 @@ const Dashboard = () => {
               ))}
             </div>
 
-            {/* Botão Agendar — protegido */}
             <button
-              onClick={() => executeProtectedAction(() => navigate("/agendamento"), MSG_AGENDAR)}
+              onClick={() => executeProtectedAction(() => navigate("/agendamento"), MSG_LOGIN)}
               className="w-full lg:max-w-[320px] py-4 lg:py-5 bg-[#059669] text-white rounded-2xl lg:rounded-3xl font-bold text-lg shadow-lg active:scale-95 transition-all lg:mx-auto mt-4 shrink-0"
             >
               Agendar agora

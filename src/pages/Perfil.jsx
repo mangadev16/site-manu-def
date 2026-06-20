@@ -7,10 +7,8 @@ import {
   ArrowLeft,
   User,
   Mail,
-  Camera,
   Save,
   Phone,
-  Trash2,
   AlertCircle,
 } from "lucide-react";
 
@@ -20,7 +18,6 @@ const Perfil = () => {
 
   const [nome, setNome] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
-  const [fotoUrl, setFotoUrl] = useState(user?.photoURL || "");
   const [mensagem, setMensagem] = useState({ tipo: "", texto: "" });
   const [nomeAlterado, setNomeAlterado] = useState(false); // flag se já alterou o nome antes
   const [carregando, setCarregando] = useState(true);
@@ -84,7 +81,6 @@ const Perfil = () => {
       // Atualizar no Authentication
       await updateProfile(user, {
         displayName: `${nome}|${whatsapp}`,
-        photoURL: fotoUrl,
       });
 
       // Atualizar no Firestore
@@ -104,20 +100,6 @@ const Perfil = () => {
         tipo: "erro",
         texto: "Erro ao atualizar. Tente novamente mais tarde.",
       });
-    }
-  };
-
-  const handleApagarConta = async () => {
-    if (window.confirm("ATENÇÃO: Deseja apagar sua conta permanentemente?")) {
-      try {
-        await user.delete();
-        navigate("/login");
-      } catch (error) {
-        setMensagem({
-          tipo: "erro",
-          texto: "Erro ao excluir. Tente fazer login novamente.",
-        });
-      }
     }
   };
 
@@ -146,23 +128,8 @@ const Perfil = () => {
       <main className="p-6 max-w-md mx-auto">
         <div className="bg-white rounded-[35px] shadow-xl p-8 border border-emerald-50">
           <div className="flex flex-col items-center mb-6">
-            <div className="relative">
-              <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center overflow-hidden border-4 border-white shadow-lg">
-                {fotoUrl ? (
-                  <img src={fotoUrl} alt="Perfil" className="w-full h-full object-cover" />
-                ) : (
-                  <User size={48} className="text-[#059669]" />
-                )}
-              </div>
-              <label className="absolute bottom-0 right-0 bg-[#059669] p-2 rounded-full text-white cursor-pointer border-2 border-white shadow-md">
-                <Camera size={16} />
-                <input
-                  type="text"
-                  className="hidden"
-                  onChange={(e) => setFotoUrl(e.target.value)}
-                  placeholder="URL da foto"
-                />
-              </label>
+            <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center overflow-hidden border-4 border-white shadow-lg">
+              <User size={48} className="text-[#059669]" />
             </div>
             <h2 className="mt-4 font-bold text-gray-800 text-lg">{nome || "Usuário"}</h2>
           </div>
@@ -247,13 +214,6 @@ const Perfil = () => {
               <Save size={20} /> {nomeAlterado ? "Nome já alterado" : "Alterar Nome"}
             </button>
           </form>
-
-          <button
-            onClick={handleApagarConta}
-            className="w-full mt-6 bg-red-50 text-red-600 py-3 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-600 hover:text-white transition-all"
-          >
-            <Trash2 size={18} /> Apagar Minha Conta
-          </button>
         </div>
       </main>
     </div>
