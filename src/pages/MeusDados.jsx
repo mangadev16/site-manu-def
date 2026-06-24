@@ -1,96 +1,89 @@
 import React, { useState, useEffect } from "react";
 import { auth, db } from "../firebase";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, getDoc, collection, query, orderBy } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Clock, ClipboardList, ChevronDown, ChevronUp } from "lucide-react";
+import { Calendar, Clock, ClipboardList, ChevronDown, ChevronUp, PlusCircle } from "lucide-react";
 import Header from "./Header";
 
+/* ── Campos exatos do PreConsulta.jsx atual ─────────────────── */
 const CAMPOS_LEGIVEL = {
-  dataNascimento: "Data de Nascimento",
-  idade: "Idade",
-  profissao: "Profissão",
-  telefone: "Telefone",
-  email: "E-mail",
-  cidade: "Cidade",
-  estadoCivil: "Estado Civil",
+  sexo: "Sexo",
   objetivos: "Objetivos",
   objetivoOutro: "Outro objetivo",
-  buscouNutricionistaAntes: "Buscou nutricionista antes?",
-  tentouMudarHabitos: "Tentou mudar hábitos antes?",
+  nutricionistaAntes: "Consultou nutricionista antes?",
+  tentouMudarHabitos: "Tentou mudar hábitos?",
   dificuldadeMudanca: "Dificuldade para mudança",
-  utilizouRecursoControle: "Utilizou recurso de controle de peso?",
+  usouRecurso: "Usou recurso de controle de peso?",
   qualRecurso: "Qual recurso?",
   pesoAtual: "Peso atual (kg)",
   altura: "Altura (cm)",
   descricaoObjetivo: "Descrição do objetivo",
   problemaSaude: "Problema de saúde",
-  historicoDoeancasFamiliar: "Histórico familiar de doenças",
-  medicamentosAtuais: "Medicamentos em uso",
-  examesRecentes: "Exames recentes?",
-  frequenciaPeso: "Frequência que se pesa",
-  familiaAcimaDosPeso: "Familiares acima do peso",
-  cargaHorariaTrabalho: "Carga horária de trabalho",
-  rotinaTrabalhoo: "Rotina de trabalho",
-  localTrabalhoRecursos: "Recursos no trabalho",
-  quemPrepRefeicoes: "Quem prepara as refeições",
-  disposicaoDiaria: "Disposição diária (1–5)",
-  sintomasGerais: "Sintomas frequentes",
+  historicoDencas: "Histórico familiar de doenças",
+  medicamentos: "Medicamentos em uso",
+  examesRecentes: "Exames laboratoriais recentes?",
+  pesaComFrequencia: "Frequência que se pesa",
+  familiaAcimaPeso: "Familiares acima do peso",
+  cargaHoraria: "Carga horária de trabalho",
+  rotinaTrab: "Rotina de trabalho",
+  localTrabRecursos: "Recursos no trabalho",
+  quemPrepara: "Quem prepara as refeições",
+  disposicao: "Disposição diária (1–5)",
+  sintomasCansaco: "Sintomas frequentes",
   qualidadeSono: "Qualidade do sono",
-  horarioDormir: "Horário de dormir",
-  horarioAcordar: "Horário de acordar",
-  frequentementeEstressada: "Frequentemente estressada?",
+  horarioSono: "Horário de dormir/acordar",
+  estressada: "Frequentemente estressado(a)?",
   reacaoEstresse: "Reação ao estresse",
   nivelEstresse: "Nível de estresse (1–5)",
   memoria: "Qualidade da memória",
   praticaAtividade: "Pratica atividade física?",
   qualAtividade: "Qual atividade?",
-  porqueNaoAtividade: "Por que não pratica?",
+  motivoNaoAtividade: "Por que não pratica?",
   frequenciaAtividade: "Frequência de atividade",
   horarioAtividade: "Horário da atividade",
   desempenhoAtividade: "Desempenho na atividade",
-  consideraAlimentacao: "Considera sua alimentação",
-  horarioMaisFome: "Horário de maior fome",
-  alergiaIntolerancia: "Alergia ou intolerância",
+  alimentacao: "Como avalia a alimentação",
+  horarioFome: "Horário de maior fome",
+  alergiaAlimentar: "Alergia ou intolerância",
   consumoAgua: "Consumo de água",
-  consumoAlcool: "Consumo de álcool",
+  alcool: "Consumo de álcool",
   fumante: "É fumante?",
-  frequenciaRestaurante: "Frequência em restaurantes/delivery",
+  restauranteFreq: "Frequência em restaurantes/delivery",
   suplementacao: "Usa suplementação?",
-  qualSuplementacao: "Qual suplementação?",
+  qualSuplemento: "Qual suplementação?",
   intestino: "Funcionamento intestinal",
-  sintomasCorpo: "Sintomas corporais",
-  cicloRegular: "Ciclo menstrual",
+  sintomasCorporais: "Sintomas corporais",
+  cicloRegular: "Ciclo menstrual regular?",
   fluxo: "Fluxo menstrual",
   colicasIntensas: "Cólicas intensas?",
   endometriose: "Endometriose?",
   sop: "SOP?",
   sintomasTPM: "Sintomas de TPM",
-  outroTPM: "Outros sintomas de TPM",
-  metodoContraceptivo: "Método contraceptivo",
-  nivelMotivacao: "Nível de motivação (1–5)",
-  importanciaObjetivo: "Importância da mudança",
+  contraceptivo: "Método contraceptivo",
+  motivacao: "Nível de motivação (1–5)",
+  importancia: "Importância da mudança",
 };
 
 const SECOES_MAPA = {
-  "Dados Pessoais": ["dataNascimento", "idade", "profissao", "telefone", "email", "cidade", "estadoCivil"],
-  "Objetivos": ["objetivos", "objetivoOutro", "buscouNutricionistaAntes", "tentouMudarHabitos", "dificuldadeMudanca", "utilizouRecursoControle", "qualRecurso", "pesoAtual", "altura", "descricaoObjetivo"],
-  "Histórico de Saúde": ["problemaSaude", "historicoDoeancasFamiliar", "medicamentosAtuais", "examesRecentes", "frequenciaPeso", "familiaAcimaDosPeso"],
-  "Estilo de Vida": ["cargaHorariaTrabalho", "rotinaTrabalhoo", "localTrabalhoRecursos", "quemPrepRefeicoes", "disposicaoDiaria", "sintomasGerais", "qualidadeSono", "horarioDormir", "horarioAcordar", "frequentementeEstressada", "reacaoEstresse", "nivelEstresse", "memoria", "praticaAtividade", "qualAtividade", "porqueNaoAtividade", "frequenciaAtividade", "horarioAtividade", "desempenhoAtividade"],
-  "Hábitos Alimentares": ["consideraAlimentacao", "horarioMaisFome", "alergiaIntolerancia", "consumoAgua", "consumoAlcool", "fumante", "frequenciaRestaurante", "suplementacao", "qualSuplementacao"],
-  "Sintomas": ["intestino", "sintomasCorpo"],
-  "Saúde da Mulher": ["cicloRegular", "fluxo", "colicasIntensas", "endometriose", "sop", "sintomasTPM", "outroTPM", "metodoContraceptivo"],
-  "Motivação": ["nivelMotivacao", "importanciaObjetivo"],
+  "Objetivos": ["sexo","objetivos","objetivoOutro","nutricionistaAntes","tentouMudarHabitos","dificuldadeMudanca","usouRecurso","qualRecurso","pesoAtual","altura","descricaoObjetivo"],
+  "Histórico de Saúde": ["problemaSaude","historicoDencas","medicamentos","examesRecentes","pesaComFrequencia","familiaAcimaPeso"],
+  "Estilo de Vida": ["cargaHoraria","rotinaTrab","localTrabRecursos","quemPrepara","disposicao","sintomasCansaco","qualidadeSono","horarioSono","estressada","reacaoEstresse","nivelEstresse","memoria","praticaAtividade","qualAtividade","motivoNaoAtividade","frequenciaAtividade","horarioAtividade","desempenhoAtividade"],
+  "Hábitos Alimentares": ["alimentacao","horarioFome","alergiaAlimentar","consumoAgua","alcool","fumante","restauranteFreq","suplementacao","qualSuplemento"],
+  "Sintomas": ["intestino","sintomasCorporais"],
+  "Saúde Feminina": ["cicloRegular","fluxo","colicasIntensas","endometriose","sop","sintomasTPM","contraceptivo"],
+  "Motivação": ["motivacao","importancia"],
 };
 
 const formatarValor = (val) => {
-  if (!val || (Array.isArray(val) && val.length === 0)) return <span className="text-gray-300 italic text-xs">Não respondido</span>;
+  if (!val || (Array.isArray(val) && val.length === 0)) return null;
   if (Array.isArray(val)) return val.join(" · ");
-  return val;
+  return String(val);
 };
 
 const MeusDados = () => {
   const [agendamentos, setAgendamentos] = useState([]);
-  const [preConsulta, setPreConsulta] = useState(null);
+  const [respostasPreConsulta, setRespostasPreConsulta] = useState([]);
+  const [respostaExpandidaId, setRespostaExpandidaId] = useState(null);
   const [abaAtiva, setAbaAtiva] = useState("consultas");
   const [secoesAbertas, setSecoesAbertas] = useState({});
   const navigate = useNavigate();
@@ -100,13 +93,41 @@ const MeusDados = () => {
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
-    const unsub = onSnapshot(doc(db, "usuarios", user.uid), (docSnap) => {
+
+    // Agendamentos via onSnapshot no doc do usuário
+    const unsubAgendamentos = onSnapshot(doc(db, "usuarios", user.uid), (docSnap) => {
       if (docSnap.exists()) {
         setAgendamentos(docSnap.data().agendamentos || []);
-        setPreConsulta(docSnap.data().preConsulta || null);
       }
     });
-    return () => unsub();
+
+    // Histórico de pré-consulta: cada envio fica salvo como uma resposta própria
+    const qRespostas = query(
+      collection(db, "preConsulta", user.uid, "respostas"),
+      orderBy("enviadoEm", "desc")
+    );
+    const unsubRespostas = onSnapshot(qRespostas, async (snap) => {
+      const lista = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+      // Compatibilidade: respostas enviadas antes deste histórico existir
+      // ficam só no documento único "preConsulta/{uid}" — inclui como a mais antiga
+      try {
+        const legadoSnap = await getDoc(doc(db, "preConsulta", user.uid));
+        if (legadoSnap.exists()) {
+          const legado = legadoSnap.data();
+          const dataLegado = legado.enviadoEm?.toDate?.() || legado.enviadoEm;
+          const jaExiste = lista.some((r) => {
+            const dataR = r.enviadoEm?.toDate?.() || r.enviadoEm;
+            return dataLegado && dataR && new Date(dataLegado).getTime() === new Date(dataR).getTime();
+          });
+          if (!jaExiste) lista.push({ id: "legado", ...legado });
+        }
+      } catch (e) { /* segue sem o legado em caso de erro */ }
+
+      setRespostasPreConsulta(lista);
+    });
+
+    return () => { unsubAgendamentos(); unsubRespostas(); };
   }, []);
 
   const toggleSecao = (s) => setSecoesAbertas((prev) => ({ ...prev, [s]: !prev[s] }));
@@ -176,9 +197,19 @@ const MeusDados = () => {
           {/* Aba: Questionário */}
           {abaAtiva === "questionario" && (
             <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-[#064e3b]">SUAS RESPOSTAS</h2>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-2xl font-bold text-[#064e3b]">SUAS RESPOSTAS</h2>
+                {respostasPreConsulta.length > 0 && (
+                  <button
+                    onClick={() => navigate("/pre-consulta?novo=1")}
+                    className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition-all shrink-0"
+                  >
+                    <PlusCircle size={14} /> Novo formulário
+                  </button>
+                )}
+              </div>
 
-              {!preConsulta ? (
+              {respostasPreConsulta.length === 0 ? (
                 <div className="bg-white p-10 rounded-[30px] border-2 border-dashed border-gray-100 text-center space-y-4">
                   <ClipboardList size={40} className="mx-auto text-gray-300" />
                   <p className="text-gray-400">Você ainda não respondeu o questionário de pré-consulta.</p>
@@ -190,39 +221,83 @@ const MeusDados = () => {
                   </button>
                 </div>
               ) : (
-                <>
+                <div className="space-y-4">
                   <div className="bg-emerald-50 border-2 border-emerald-100 rounded-2xl px-4 py-3 text-xs text-emerald-700 font-bold">
-                    ✅ Respondido em {new Date(preConsulta.respondidoEm).toLocaleDateString("pt-BR")} — estas respostas são somente para leitura.
+                    {respostasPreConsulta.length === 1
+                      ? "✅ Estas respostas são somente para leitura. Se algo mudou, você pode responder um novo formulário antes da próxima consulta."
+                      : `✅ Você tem ${respostasPreConsulta.length} questionários respondidos. Acesse o mais recente ou os anteriores abaixo.`}
                   </div>
 
-                  {Object.entries(SECOES_MAPA).map(([secao, campos]) => (
-                    <div key={secao} className="bg-white rounded-[25px] border-2 border-emerald-50 shadow-sm overflow-hidden">
-                      <button
-                        onClick={() => toggleSecao(secao)}
-                        className="w-full flex justify-between items-center p-5 text-left"
-                      >
-                        <span className="font-black text-sm text-[#064e3b] uppercase tracking-wider">{secao}</span>
-                        {secoesAbertas[secao] ? <ChevronUp size={16} className="text-emerald-500" /> : <ChevronDown size={16} className="text-gray-400" />}
-                      </button>
-                      {secoesAbertas[secao] && (
-                        <div className="px-5 pb-5 space-y-3 border-t-2 border-emerald-50 pt-4">
-                          {campos.map((campo) => {
-                            const val = preConsulta[campo];
-                            if (!val || (Array.isArray(val) && val.length === 0)) return null;
-                            return (
-                              <div key={campo} className="flex flex-col gap-0.5">
-                                <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
-                                  {CAMPOS_LEGIVEL[campo] || campo}
-                                </span>
-                                <span className="text-sm text-gray-700 font-medium">{formatarValor(val)}</span>
+                  {respostasPreConsulta.map((resposta, idx) => {
+                    const expandido = respostaExpandidaId === resposta.id;
+                    const dataFormatada = resposta.enviadoEm
+                      ? new Date(resposta.enviadoEm?.toDate?.() || resposta.enviadoEm).toLocaleDateString("pt-BR")
+                      : "—";
+                    return (
+                      <div key={resposta.id} className="bg-white rounded-[28px] border-2 border-emerald-50 shadow-sm overflow-hidden">
+                        <button
+                          onClick={() => setRespostaExpandidaId(expandido ? null : resposta.id)}
+                          className="w-full flex items-center justify-between p-5 text-left gap-3"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="bg-emerald-50 p-3 rounded-2xl text-emerald-600 shrink-0">
+                              <ClipboardList size={18} />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-gray-800 text-sm">Respondido em {dataFormatada}</span>
+                                {idx === 0 && respostasPreConsulta.length > 1 && (
+                                  <span className="bg-emerald-100 text-emerald-700 text-[9px] font-black px-2 py-0.5 rounded-full uppercase shrink-0">
+                                    Mais recente
+                                  </span>
+                                )}
                               </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </>
+                              <span className="text-[11px] text-gray-400">Somente leitura</span>
+                            </div>
+                          </div>
+                          {expandido ? <ChevronUp size={16} className="text-emerald-500 shrink-0" /> : <ChevronDown size={16} className="text-gray-400 shrink-0" />}
+                        </button>
+
+                        {expandido && (
+                          <div className="px-5 pb-5 space-y-3 border-t-2 border-emerald-50 pt-4">
+                            {Object.entries(SECOES_MAPA).map(([secao, campos]) => {
+                              // Ocultar seção de saúde feminina se o paciente for homem
+                              if (secao === "Saúde Feminina" && resposta.sexo === "Masculino") return null;
+                              const chave = `${resposta.id}__${secao}`;
+                              return (
+                                <div key={secao} className="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden">
+                                  <button
+                                    onClick={() => toggleSecao(chave)}
+                                    className="w-full flex justify-between items-center p-4 text-left"
+                                  >
+                                    <span className="font-black text-[11px] text-[#064e3b] uppercase tracking-wider">{secao}</span>
+                                    {secoesAbertas[chave] ? <ChevronUp size={14} className="text-emerald-500" /> : <ChevronDown size={14} className="text-gray-400" />}
+                                  </button>
+                                  {secoesAbertas[chave] && (
+                                    <div className="px-4 pb-4 space-y-3 border-t border-gray-100 pt-3">
+                                      {campos.map((campo) => {
+                                        const val = formatarValor(resposta[campo]);
+                                        if (!val) return null;
+                                        return (
+                                          <div key={campo} className="flex flex-col gap-0.5">
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+                                              {CAMPOS_LEGIVEL[campo] || campo}
+                                            </span>
+                                            <span className="text-sm text-gray-700 font-medium">{val}</span>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           )}

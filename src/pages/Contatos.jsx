@@ -34,11 +34,11 @@ const Contatos = () => {
       bgIcon: "bg-purple-50"
     },
     {
-      categoria: "Desenvolvimento",
-      nome: "Ciclano Santos",
+      categoria: "Desenvolvedor",
+      nome: "Amilton Dantas",
       funcao: "Desenvolvedor Full Stack",
-      email: "dev@exemplo.com",
-      github: "github.com/ciclano",
+      email: "amiltonaj05@gmail.com",
+      github: "github.com/Amiltond",
       icon: Code,
       iconColor: "text-blue-600",
       bgIcon: "bg-blue-50"

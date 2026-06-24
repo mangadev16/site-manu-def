@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { auth, db } from "../firebase";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, addDoc, collection } from "firebase/firestore";
 import {
-  ArrowLeft, ArrowRight, CheckCircle2, ChevronRight, Check,
+  ArrowLeft, ArrowRight, CheckCircle2, ChevronRight, Check, PlusCircle,
   Target, ClipboardList, Leaf, Salad, HeartPulse, Flower2, Sparkles, Venus, Mars,
 } from "lucide-react";
 
@@ -247,6 +247,8 @@ const TelaSexo = ({ onSelect }) => {
 /* ── Componente principal ─────────────────────────────────────── */
 const PreConsulta = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const forcarNovo = searchParams.get("novo") === "1" || searchParams.get("novo") === "true";
   const user = auth.currentUser;
   const [sexo, setSexo] = useState("");           // "" | "Masculino" | "Feminino"
   const [secaoIdx, setSecaoIdx] = useState(0);
@@ -264,6 +266,18 @@ const PreConsulta = () => {
     });
   }, [user]);
 
+  // Só exibe a tela de "já respondido" quando o usuário não pediu
+  // explicitamente um formulário novo (ex: vindo de "Responder novo formulário")
+  const mostrarGate = jaRespondeu && !forcarNovo && !enviado;
+
+  // Reinicia o formulário do zero para uma nova resposta
+  const iniciarNovoFormulario = () => {
+    setForm(estadoInicial);
+    setSexo("");
+    setSecaoIdx(0);
+    setJaRespondeu(false);
+  };
+
   const secoes = sexo === "Feminino" ? SECOES_FEMININAS : SECOES_COMUNS;
   const secaoAtual = secoes[secaoIdx];
   const totalSecoes = secoes.length;
@@ -272,21 +286,26 @@ const PreConsulta = () => {
   const enviar = async () => {
     setEnviando(true);
     try {
-      await setDoc(doc(db, "preConsulta", user.uid), {
+      const payload = {
         ...form, sexo,
         uid: user.uid,
         nome: user.displayName?.split("|")[0] || "",
         email: user.email,
         telefone: user.displayName?.split("|")[1] || "",
         enviadoEm: new Date(),
-      });
+      };
+      // Guarda esta resposta no histórico (uma por formulário enviado)
+      await addDoc(collection(db, "preConsulta", user.uid, "respostas"), payload);
+      // Mantém também o documento principal com a resposta mais recente,
+      // para compatibilidade com leituras já existentes
+      await setDoc(doc(db, "preConsulta", user.uid), payload);
       setEnviado(true);
     } catch (e) { console.error(e); }
     finally { setEnviando(false); }
   };
 
-  /* ── Tela de conclusão ──────────────────────────────────────── */
-  if (enviado || jaRespondeu) {
+  /* ── Tela de conclusão / já respondido ──────────────────────── */
+  if (enviado || mostrarGate) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center px-6 bg-gray-50">
         <style>{`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');.pc-font*{font-family:'Nunito',sans-serif}`}</style>
@@ -297,20 +316,30 @@ const PreConsulta = () => {
           </div>
           <div>
             <h2 className="text-lg font-black text-gray-900 mb-1">
-              {jaRespondeu && !enviado ? "Já respondido!" : "Tudo certo!"}
+              {mostrarGate ? "Já respondido!" : "Tudo certo!"}
             </h2>
             <p className="text-sm text-gray-500 leading-relaxed">
-              {jaRespondeu && !enviado
-                ? "Você já preencheu o questionário. Pode ir direto para o agendamento."
+              {mostrarGate
+                ? "Você já preencheu o questionário. Se algo mudou desde a última vez, pode responder um novo antes da consulta."
                 : "Suas respostas foram salvas. A Manuela vai analisá-las antes da consulta."}
             </p>
           </div>
-          <button
-            onClick={() => navigate("/agendamento")}
-            className="w-full bg-[#6b5e8b] hover:bg-[#5b4f78] text-white font-bold py-3.5 rounded-2xl text-sm transition-all active:scale-95 flex items-center justify-center gap-2"
-          >
-            Ir para o Agendamento <ChevronRight size={15} />
-          </button>
+          <div className="space-y-2.5">
+            <button
+              onClick={() => navigate("/agendamento")}
+              className="w-full bg-[#6b5e8b] hover:bg-[#5b4f78] text-white font-bold py-3.5 rounded-2xl text-sm transition-all active:scale-95 flex items-center justify-center gap-2"
+            >
+              Ir para o Agendamento <ChevronRight size={15} />
+            </button>
+            {mostrarGate && (
+              <button
+                onClick={iniciarNovoFormulario}
+                className="w-full bg-white border-2 border-[#6b5e8b]/25 hover:border-[#6b5e8b] text-[#6b5e8b] font-bold py-3.5 rounded-2xl text-sm transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <PlusCircle size={15} /> Responder novo formulário
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -507,7 +536,7 @@ const PreConsulta = () => {
             <InputText placeholder="Qual? Deixe em branco se não tiver" value={form.alergiaAlimentar} onChange={e => set("alergiaAlimentar", e.target.value)} />
           </Campo>
           <Campo label="Quantos litros de água bebe por dia?">
-            <RadioPills opcoes={["< 1L", "1–2L", "2–3L", "> 3L"]} value={form.consumoAgua} onChange={v => set("consumoAgua", v)} />
+            <RadioPills opcoes={["< 1L", "1–2L", "2–3L", "3–4L", "> 4L"]} value={form.consumoAgua} onChange={v => set("consumoAgua", v)} />
           </Campo>
           <Campo label="Consome bebidas alcoólicas?">
             <RadioPills opcoes={["Não", "Fins de semana", "Socialmente", "Frequentemente"]} value={form.alcool} onChange={v => set("alcool", v)} />
