@@ -119,9 +119,10 @@ const Agendamento = () => {
       setSalvando(true);
 
       const novoAgendamento = {
-        servico:   servicoSelecionado,
-        duracao:   DURACAO,
-        valor:     VALOR,
+        servico:       servicoSelecionado,
+        duracao:       DURACAO,
+        valor:         VALOR,
+        tipoConsulta:  "Primeira consulta",
         data:      dataString,
         horario:   horarioSelecionado,
         status:    "pendente",

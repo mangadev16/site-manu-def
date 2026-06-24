@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { auth, db } from "../firebase";
 import { doc, onSnapshot, getDoc, collection, query, orderBy } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Clock, ClipboardList, ChevronDown, ChevronUp, PlusCircle } from "lucide-react";
+import { Calendar, Clock, ClipboardList, ChevronDown, ChevronUp, PlusCircle, FileText } from "lucide-react";
 import Header from "./Header";
 
 /* ── Campos exatos do PreConsulta.jsx atual ─────────────────── */
@@ -80,8 +80,17 @@ const formatarValor = (val) => {
   return String(val);
 };
 
+// Converte "dd/mm/yyyy" + "HH:MM" em timestamp, para ordenar as consultas
+const timestampAgendamento = (ag) => {
+  if (!ag?.data) return 0;
+  const [dia, mes, ano] = ag.data.split("/");
+  const [hora, minuto] = (ag.horario || "00:00").split(":");
+  return new Date(ano, mes - 1, dia, hora || 0, minuto || 0).getTime();
+};
+
 const MeusDados = () => {
   const [agendamentos, setAgendamentos] = useState([]);
+  const [consultaAbertaId, setConsultaAbertaId] = useState(null);
   const [respostasPreConsulta, setRespostasPreConsulta] = useState([]);
   const [respostaExpandidaId, setRespostaExpandidaId] = useState(null);
   const [abaAtiva, setAbaAtiva] = useState("consultas");
@@ -97,7 +106,9 @@ const MeusDados = () => {
     // Agendamentos via onSnapshot no doc do usuário
     const unsubAgendamentos = onSnapshot(doc(db, "usuarios", user.uid), (docSnap) => {
       if (docSnap.exists()) {
-        setAgendamentos(docSnap.data().agendamentos || []);
+        const lista = [...(docSnap.data().agendamentos || [])];
+        lista.sort((a, b) => timestampAgendamento(b) - timestampAgendamento(a));
+        setAgendamentos(lista);
       }
     });
 
@@ -168,28 +179,68 @@ const MeusDados = () => {
                   Nenhum agendamento encontrado.
                 </div>
               ) : (
-                agendamentos.map((ag) => (
-                  <div
-                    key={ag.id}
-                    className="bg-white p-6 rounded-[35px] border-2 border-emerald-50 shadow-sm flex justify-between items-center transition-all hover:shadow-md"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="bg-emerald-50 p-4 rounded-2xl text-emerald-600">
-                        <Calendar size={24} />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-gray-800 text-lg">{ag.servico}</h3>
-                        <div className="flex items-center gap-2 text-gray-500 text-sm mt-1">
-                          <Clock size={14} className="text-emerald-400" />
-                          <span>{ag.data} às {ag.horario}</span>
+                agendamentos.map((ag) => {
+                  const chave = ag.id || `${ag.data}-${ag.horario}`;
+                  const aberto = consultaAbertaId === chave;
+                  return (
+                    <div
+                      key={chave}
+                      className="bg-white rounded-[35px] border-2 border-emerald-50 shadow-sm overflow-hidden transition-all hover:shadow-md"
+                    >
+                      <button
+                        onClick={() => setConsultaAbertaId(aberto ? null : chave)}
+                        className="w-full p-6 flex justify-between items-center text-left gap-3"
+                      >
+                        <div className="flex items-center gap-4 min-w-0">
+                          <div className="bg-emerald-50 p-4 rounded-2xl text-emerald-600 shrink-0">
+                            <Calendar size={24} />
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="font-bold text-gray-800 text-lg truncate">{ag.servico}</h3>
+                            <div className="flex items-center gap-2 text-gray-500 text-sm mt-1">
+                              <Clock size={14} className="text-emerald-400" />
+                              <span>{ag.data} às {ag.horario}</span>
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {ag.documentacoes?.length > 0 && (
+                            <span className="flex items-center gap-1 bg-emerald-50 text-emerald-700 text-[10px] font-black px-2.5 py-1.5 rounded-full" title={`${ag.documentacoes.length} documentação(ões) enviada(s)`}>
+                              <FileText size={11} /> {ag.documentacoes.length}
+                            </span>
+                          )}
+                          <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-4 py-2 rounded-full uppercase">
+                            {ag.status || "Confirmado"}
+                          </span>
+                          {aberto ? <ChevronUp size={16} className="text-emerald-500" /> : <ChevronDown size={16} className="text-gray-400" />}
+                        </div>
+                      </button>
+
+                      {aberto && (
+                        <div className="px-6 pb-6 border-t-2 border-emerald-50 pt-4 space-y-3">
+                          {ag.documentacoes?.length > 0 ? (
+                            [...ag.documentacoes].reverse().map((docItem, i) => (
+                              <div key={i} className="bg-emerald-50/60 rounded-2xl p-4 space-y-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Documentação da nutricionista</p>
+                                  {i === 0 && ag.documentacoes.length > 1 && (
+                                    <span className="bg-emerald-100 text-emerald-700 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">Mais recente</span>
+                                  )}
+                                </div>
+                                <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{docItem.texto}</p>
+                                <p className="text-[10px] text-gray-400">
+                                  Enviado em {new Date(docItem.enviadoEm).toLocaleDateString("pt-BR")} às {new Date(docItem.enviadoEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                                </p>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-gray-400 text-center py-2">A nutricionista ainda não enviou nenhuma documentação para esta consulta.</p>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-4 py-2 rounded-full uppercase">
-                      {ag.status || "Confirmado"}
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           )}
