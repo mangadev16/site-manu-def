@@ -217,7 +217,7 @@ const Inicio = () => {
                   onClick={() => navigate("/manuela")}
                   className="inline-flex items-center justify-center gap-2 bg-white/10 border border-white/25 text-white font-semibold px-4 py-3 rounded-xl hover:bg-white/20 transition-all text-sm whitespace-nowrap"
                 >
-                  + Saúde Integrativa
+                  Conheça a Manuela!
                 </button>
               </div>
             </div>

@@ -1,7 +1,8 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore"; // ADICIONADO: Importação necessária
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBqAl3CESrV_-M2602E1RDh0Q1t7Oa0wXE",
@@ -16,5 +17,6 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app); // Agora vai funcionar porque a função foi importada
+export const db = getFirestore(app);
+export const storage = getStorage(app);
 const analytics = getAnalytics(app);

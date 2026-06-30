@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { auth, db } from "../firebase";
 import { doc, onSnapshot, getDoc, collection, query, orderBy } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Clock, ClipboardList, ChevronDown, ChevronUp, PlusCircle, FileText } from "lucide-react";
+import { Calendar, Clock, ClipboardList, ChevronDown, ChevronUp, PlusCircle, FileText, Download, Wifi, MessageCircle } from "lucide-react";
 import Header from "./Header";
 
 /* ── Campos exatos do PreConsulta.jsx atual ─────────────────── */
@@ -174,6 +174,41 @@ const MeusDados = () => {
           {abaAtiva === "consultas" && (
             <div className="space-y-4">
               <h2 className="text-2xl font-bold text-[#064e3b]">HISTÓRICO DE CONSULTAS</h2>
+
+              {/* Botão WhatsApp — consulta online mais recente */}
+              {(() => {
+                const online = [...agendamentos]
+                  .filter(ag => ag.modalidade === "Online" && ag.status !== "cancelado")
+                  .sort((a, b) => {
+                    const toTs = (ag) => ag.timestamp?.toDate?.() || new Date(ag.timestamp || 0);
+                    return toTs(b) - toTs(a);
+                  })[0];
+                if (!online) return null;
+                return (
+                  <div className="bg-sky-50 border border-sky-100 rounded-2xl p-4 space-y-3">
+                    <div className="flex items-start gap-2.5">
+                      <Wifi size={15} className="text-sky-500 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold text-sky-800 text-sm">Consulta Online · {online.servico}</p>
+                        <p className="text-sky-600 text-[11px] mt-0.5 leading-relaxed">
+                          Entre em contato pelo WhatsApp para combinar o link da chamada ({online.data} às {online.horario}).
+                        </p>
+                      </div>
+                    </div>
+                    <a
+                      href="https://wa.me/5599999999999"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-bold text-sm text-white transition-all active:scale-95"
+                      style={{ backgroundColor: "#25D366" }}
+                    >
+                      <MessageCircle size={16} />
+                      (99) 99999-9999
+                    </a>
+                  </div>
+                );
+              })()}
+
               {agendamentos.length === 0 ? (
                 <div className="bg-white p-10 rounded-[30px] border-2 border-dashed border-gray-100 text-center text-gray-400">
                   Nenhum agendamento encontrado.
@@ -192,14 +227,19 @@ const MeusDados = () => {
                         className="w-full p-6 flex justify-between items-center text-left gap-3"
                       >
                         <div className="flex items-center gap-4 min-w-0">
-                          <div className="bg-emerald-50 p-4 rounded-2xl text-emerald-600 shrink-0">
-                            <Calendar size={24} />
+                          <div className={`p-4 rounded-2xl shrink-0 ${ag.modalidade === "Online" ? "bg-sky-50 text-sky-500" : "bg-emerald-50 text-emerald-600"}`}>
+                            {ag.modalidade === "Online" ? <Wifi size={24} /> : <Calendar size={24} />}
                           </div>
                           <div className="min-w-0">
                             <h3 className="font-bold text-gray-800 text-lg truncate">{ag.servico}</h3>
-                            <div className="flex items-center gap-2 text-gray-500 text-sm mt-1">
+                            <div className="flex items-center gap-2 text-gray-500 text-sm mt-1 flex-wrap">
                               <Clock size={14} className="text-emerald-400" />
                               <span>{ag.data} às {ag.horario}</span>
+                              {ag.modalidade && (
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ag.modalidade === "Online" ? "bg-sky-50 text-sky-600" : "bg-emerald-50 text-emerald-700"}`}>
+                                  {ag.modalidade}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -227,7 +267,19 @@ const MeusDados = () => {
                                     <span className="bg-emerald-100 text-emerald-700 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">Mais recente</span>
                                   )}
                                 </div>
-                                <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{docItem.texto}</p>
+                                {docItem.texto && (
+                                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{docItem.texto}</p>
+                                )}
+                                {docItem.urlPDF && (
+                                  <a
+                                    href={docItem.urlPDF}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-3 py-2 rounded-xl text-xs transition-all"
+                                  >
+                                    <Download size={13} /> Baixar PDF
+                                  </a>
+                                )}
                                 <p className="text-[10px] text-gray-400">
                                   Enviado em {new Date(docItem.enviadoEm).toLocaleDateString("pt-BR")} às {new Date(docItem.enviadoEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                                 </p>
@@ -354,6 +406,7 @@ const MeusDados = () => {
           )}
         </div>
       </main>
+      {/* Modal visualizador de PDF via PDF.js */}
     </div>
   );
 };
